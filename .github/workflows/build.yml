@@ -1,0 +1,84 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  backend:
+    name: 打包后端 jar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+          cache: maven
+
+      - name: Maven 打包
+        working-directory: backend
+        run: mvn -B -ntp clean package -DskipTests
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exam-ai-backend
+          path: backend/target/exam-ai-backend.jar
+          if-no-files-found: error
+
+  frontend:
+    name: 打包前端静态资源
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安装依赖并构建
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exam-ai-frontend
+          path: frontend/dist
+          if-no-files-found: error
+
+  deploy-bundle:
+    name: 生成一体化部署包
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: exam-ai-backend
+          path: bundle/backend
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: exam-ai-frontend
+          path: bundle/frontend
+
+      - name: 组装部署包
+        run: |
+          mkdir -p bundle/sql
+          cp sql/schema.sql sql/data.sql bundle/sql/
+          cp deploy/nginx.conf.example bundle/nginx.conf.example
+          cp deploy/start.sh bundle/start.sh
+          chmod +x bundle/start.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exam-ai-deploy
+          path: bundle
+          if-no-files-found: error

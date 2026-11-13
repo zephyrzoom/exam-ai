@@ -49,11 +49,8 @@ public class ExamService {
 
     @Transactional
     public Map<String, Object> enter(Long projectId) {
-        Long candidateId = LoginUser.get().getId();
-        ExamCandidate candidate = candidateMapper.selectById(candidateId);
-        if (candidate == null || !Objects.equals(candidate.getProjectId(), projectId)) {
-            throw new BusinessException(403, "您不在该项目考生名单中");
-        }
+        ExamCandidate candidate = projectCandidate(projectId);
+        Long candidateId = candidate.getId();
         ExamProject project = projectMapper.selectById(projectId);
         if (project == null || !Consts.PROJECT_PUBLISHED.equals(project.getStatus())) {
             throw new BusinessException("项目不存在或未发布");
@@ -216,9 +213,24 @@ public class ExamService {
         }
     }
 
+    /** token 只绑定登录时的一条考生记录，同一身份证在项目中有独立记录，需按身份证定位 */
+    private ExamCandidate projectCandidate(Long projectId) {
+        ExamCandidate login = candidateMapper.selectById(LoginUser.get().getId());
+        if (login != null) {
+            ExamCandidate candidate = candidateMapper.selectOne(new LambdaQueryWrapper<ExamCandidate>()
+                    .eq(ExamCandidate::getProjectId, projectId)
+                    .eq(ExamCandidate::getIdCard, login.getIdCard()));
+            if (candidate != null) return candidate;
+        }
+        throw new BusinessException(403, "您不在该项目考生名单中");
+    }
+
     private ExamRecord ownRecord(Long recordId) {
         ExamRecord record = recordMapper.selectById(recordId);
-        if (record == null || !Objects.equals(record.getCandidateId(), LoginUser.get().getId())) {
+        if (record == null) throw new BusinessException(403, "考试记录不存在");
+        ExamCandidate login = candidateMapper.selectById(LoginUser.get().getId());
+        ExamCandidate owner = candidateMapper.selectById(record.getCandidateId());
+        if (login == null || owner == null || !Objects.equals(login.getIdCard(), owner.getIdCard())) {
             throw new BusinessException(403, "考试记录不存在");
         }
         return record;

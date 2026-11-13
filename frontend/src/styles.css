@@ -1,0 +1,12 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Microsoft YaHei", Arial, sans-serif; background: #f5f7fa; }
+.page { padding: 16px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+.toolbar .spacer { flex: 1; }
+.card { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.stat-item { background: #fff; border-radius: 8px; padding: 16px; text-align: center; border: 1px solid #ebeef5; }
+.stat-item .num { font-size: 26px; font-weight: 700; color: #409eff; }
+.stat-item .label { color: #909399; font-size: 13px; margin-top: 4px; }
+.q-content { white-space: pre-wrap; }
+.muted { color: #909399; font-size: 12px; }

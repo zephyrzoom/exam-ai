@@ -20,6 +20,9 @@ yarn-error.log*
 *.iml
 .vscode/
 
+# 源码打包输出
+release/
+
 # 环境变量与本地配置
 .env
 .env.local

@@ -16,7 +16,7 @@
     </div>
 
     <el-alert v-if="switchCount > 0" type="warning" :closable="false" class="cheat-warn">
-      防作弊提示：已检测到 {{ switchCount }} 次切屏/失焦行为，均已被记录。请专注作答，禁止复制粘贴与查阅资料。
+      防作弊提示：已检测到 {{ switchCount }} 次切屏/失焦行为，均已被记录；累计 {{ MAX_SWITCH_COUNT }} 次将自动交卷。请专注作答，禁止复制粘贴与查阅资料。
     </el-alert>
 
     <div class="body" v-if="exam">
@@ -76,7 +76,7 @@
     <!-- 交卷成功 -->
     <div v-if="submitted" class="done-box">
       <el-result icon="success" title="交卷成功"
-                 :sub-title="`您的答卷已提交${autoSubmitted ? '（超时自动交卷）' : ''}，客观题由系统自动判分，主观题由 AI 初评后人工复核。成绩由招聘管理员通知。`">
+                 :sub-title="`您的答卷已提交${submitHint}，客观题由系统自动判分，主观题由 AI 初评后人工复核。成绩由招聘管理员通知。`">
         <template #extra>
           <el-button type="primary" @click="$router.push('/candidate')">返回考试列表</el-button>
         </template>
@@ -104,6 +104,7 @@ const router = useRouter()
 const projectId = route.params.projectId
 const letters = 'ABCDEFGH'.split('')
 const typeNames = { SINGLE: '单选题', MULTI: '多选题', JUDGE: '判断题', ESSAY: '主观简答题' }
+const MAX_SWITCH_COUNT = 3
 
 const exam = ref(null)
 const answers = reactive({})
@@ -113,16 +114,24 @@ const saveState = ref('')
 const lastSaveTime = ref('')
 const submitted = ref(false)
 const autoSubmitted = ref(false)
+const autoReason = ref('')
 const enterError = ref('')
 const switchCount = ref(0)
 const isFullscreen = ref(false)
 
 let timer = null
 let saver = null
+let autoSubmitting = false
+let away = false
+let awayResetTimer = null
 
 const currentQuestion = computed(() => exam.value?.questions[current.value])
 const answeredCount = computed(() =>
   exam.value ? exam.value.questions.filter(q => (answers[q.questionId] || '').trim()).length : 0)
+const submitHint = computed(() => {
+  if (!autoSubmitted.value) return ''
+  return autoReason.value === 'switch' ? '（切屏超限自动交卷）' : '（超时自动交卷）'
+})
 
 function formatTime(s) {
   if (s < 0) s = 0
@@ -141,6 +150,7 @@ async function save() {
     const res = await saveAnswers(exam.value.recordId, collectAnswers())
     if (res.autoSubmitted) {
       autoSubmitted.value = true
+      autoReason.value = 'timeout'
       finishExam()
       return
     }
@@ -173,7 +183,27 @@ async function confirmSubmit() {
     unanswered > 0 ? `还有 ${unanswered} 题未作答，确认交卷？交卷后不可修改。` : '确认交卷？交卷后不可修改。',
     '交卷确认', { type: 'warning', confirmButtonText: '确认交卷', cancelButtonText: '继续作答' })
   await save()
+  if (submitted.value) return
   await submitExam(exam.value.recordId)
+  finishExam()
+}
+
+async function autoSubmit(reason) {
+  if (autoSubmitting || submitted.value || !exam.value) return
+  autoSubmitting = true
+  autoSubmitted.value = true
+  autoReason.value = reason
+  try {
+    await save()
+    if (submitted.value) return
+    await submitExam(exam.value.recordId)
+  } catch {
+    autoSubmitting = false
+    autoSubmitted.value = false
+    autoReason.value = ''
+    ElMessage.error('自动交卷失败，请立即手动交卷')
+    return
+  }
   finishExam()
 }
 
@@ -186,32 +216,50 @@ function finishExam() {
 }
 
 // ---------- 防作弊 ----------
-function cheat(type, detail) {
+function reportEvent(type, detail) {
   if (!exam.value || submitted.value) return
   reportCheat(exam.value.recordId, type, detail).catch(() => {})
-  if (type === 'BLUR' || type === 'VISIBILITY') {
-    switchCount.value++
-    ElMessage.warning(`防作弊警告：切屏/失焦行为已记录（第 ${switchCount.value} 次）`)
+}
+
+/** blur 与 visibilitychange 常成对触发，同一次切屏只计一次 */
+function onSwitch(type, detail) {
+  if (away || !exam.value || submitted.value) return
+  away = true
+  reportEvent(type, detail)
+  switchCount.value++
+  if (switchCount.value >= MAX_SWITCH_COUNT) {
+    ElMessage.error(`切屏已达 ${MAX_SWITCH_COUNT} 次，系统将自动交卷`)
+    autoSubmit('switch')
+  } else {
+    ElMessage.warning(`防作弊警告：切屏/失焦行为已记录（第 ${switchCount.value} 次），累计 ${MAX_SWITCH_COUNT} 次将自动交卷`)
   }
 }
-const onVisibility = () => { if (document.hidden) cheat('VISIBILITY', '页面隐藏') }
-const onBlur = () => cheat('BLUR', '窗口失焦')
-const onCopy = () => { cheat('COPY', '尝试复制'); ElMessage.warning('考试期间禁止复制') }
-const onPaste = () => { cheat('PASTE', '尝试粘贴'); ElMessage.warning('考试期间禁止粘贴') }
-const onContextMenu = () => cheat('CONTEXT_MENU', '右键菜单')
+
+function resetAwaySoon() {
+  clearTimeout(awayResetTimer)
+  awayResetTimer = setTimeout(() => { away = false }, 300)
+}
+
+const onVisibility = () => { document.hidden ? onSwitch('VISIBILITY', '页面隐藏') : resetAwaySoon() }
+const onBlur = () => onSwitch('BLUR', '窗口失焦')
+const onCopy = () => { reportEvent('COPY', '尝试复制'); ElMessage.warning('考试期间禁止复制') }
+const onPaste = () => { reportEvent('PASTE', '尝试粘贴'); ElMessage.warning('考试期间禁止粘贴') }
+const onContextMenu = () => reportEvent('CONTEXT_MENU', '右键菜单')
 const onFullscreenChange = () => {
   isFullscreen.value = !!document.fullscreenElement
-  if (!document.fullscreenElement && exam.value && !submitted.value) cheat('FULLSCREEN_EXIT', '退出全屏')
+  if (!document.fullscreenElement && exam.value && !submitted.value) reportEvent('FULLSCREEN_EXIT', '退出全屏')
 }
 
 function installAntiCheat() {
   document.addEventListener('visibilitychange', onVisibility)
   window.addEventListener('blur', onBlur)
+  window.addEventListener('focus', resetAwaySoon)
   document.addEventListener('fullscreenchange', onFullscreenChange)
 }
 function removeAntiCheat() {
   document.removeEventListener('visibilitychange', onVisibility)
   window.removeEventListener('blur', onBlur)
+  window.removeEventListener('focus', resetAwaySoon)
   document.removeEventListener('fullscreenchange', onFullscreenChange)
 }
 
@@ -228,15 +276,10 @@ onMounted(async () => {
     switchCount.value = data.switchCount || 0
     data.questions.forEach(q => { answers[q.questionId] = data.savedAnswers[q.questionId] || '' })
     installAntiCheat()
+    if (switchCount.value >= MAX_SWITCH_COUNT) autoSubmit('switch')
     timer = setInterval(() => {
       remain.value--
-      if (remain.value <= 0) {
-        autoSubmitted.value = true
-        saveAnswers(exam.value.recordId, collectAnswers())
-          .then(() => submitExam(exam.value.recordId))
-          .catch(() => {})
-          .finally(finishExam)
-      }
+      if (remain.value <= 0) autoSubmit('timeout')
     }, 1000)
     saver = setInterval(save, 15000)
   } catch (e) {
@@ -247,6 +290,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   clearInterval(timer)
   clearInterval(saver)
+  clearTimeout(awayResetTimer)
   removeAntiCheat()
 })
 </script>

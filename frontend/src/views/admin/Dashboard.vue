@@ -31,18 +31,18 @@
 
 <script setup>
 import { reactive, onMounted } from 'vue'
-import { pageQuestions, pagePapers, pageProjects, gradingRecords } from '../../api'
+import { countQuestions, pagePapers, pageProjects, gradingRecords } from '../../api'
 
 const stats = reactive({ questions: 0, papers: 0, projects: 0, pendingReview: 0 })
 
 onMounted(async () => {
   const [q, p, pr, g] = await Promise.all([
-    pageQuestions({ pageNum: 1, pageSize: 1 }),
+    countQuestions(),
     pagePapers({ pageNum: 1, pageSize: 1 }),
     pageProjects({ pageNum: 1, pageSize: 1 }),
     gradingRecords({ pageNum: 1, pageSize: 1, state: 'pending' })
   ])
-  stats.questions = q.total
+  stats.questions = q
   stats.papers = p.total
   stats.projects = pr.total
   stats.pendingReview = g.total

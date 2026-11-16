@@ -2,7 +2,7 @@
   <div class="page">
     <el-tabs v-model="tab" @tab-change="onTabChange">
       <el-tab-pane label="公共题库" name="PUBLIC" />
-      <el-tab-pane :label="isPm ? '私有题库(全部)' : '私有题库(本部门)'" name="PRIVATE" />
+      <el-tab-pane v-if="!isPm" label="私有题库(本部门)" name="PRIVATE" />
       <el-tab-pane v-if="isPm" label="贡献审核" name="REVIEW" />
     </el-tabs>
 
@@ -39,11 +39,10 @@
       </el-table-column>
       <el-table-column prop="knowledgePoint" label="知识点" width="110" show-overflow-tooltip />
       <el-table-column prop="defaultScore" label="分值" width="70" />
-      <el-table-column v-if="tab === 'PRIVATE' && isPm" prop="deptName" label="部门" width="100" />
       <el-table-column label="操作" width="210" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-          <el-button v-if="tab === 'PRIVATE' && !isPm" link type="warning" @click="contribute(row)">贡献公共</el-button>
+          <el-button v-if="tab === 'PRIVATE'" link type="warning" @click="contribute(row)">贡献公共</el-button>
           <el-button v-if="canWrite" link type="danger" @click="remove(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -173,7 +172,7 @@ const diffNames = ['', '入门', '简单', '中等', '较难', '困难']
 const typeNames = { SINGLE: '单选', MULTI: '多选', JUDGE: '判断', ESSAY: '主观简答' }
 const letters = 'ABCDEFGH'.split('')
 
-const canWrite = computed(() => tab.value === 'PUBLIC' ? isPm : !isPm)
+const canWrite = computed(() => tab.value === 'PUBLIC' ? isPm : tab.value === 'PRIVATE')
 
 async function load() {
   loading.value = true

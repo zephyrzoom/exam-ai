@@ -54,6 +54,7 @@ export const deleteUser = id => http.delete(`/users/${id}`)
 
 // ---------- 题库 ----------
 export const pageQuestions = p => http.get('/questions', { params: p })
+export const countQuestions = () => http.get('/questions/count')
 export const getQuestion = id => http.get(`/questions/${id}`)
 export const createQuestion = d => http.post('/questions', d)
 export const updateQuestion = (id, d) => http.put(`/questions/${id}`, d)

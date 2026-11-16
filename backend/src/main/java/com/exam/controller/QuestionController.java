@@ -36,6 +36,11 @@ public class QuestionController {
                 difficulty, knowledgePoint, keyword, status));
     }
 
+    @GetMapping("/count")
+    public Result<Long> count() {
+        return Result.ok(questionService.visibleCount());
+    }
+
     @GetMapping("/{id}")
     public Result<Question> get(@PathVariable Long id) {
         return Result.ok(questionService.get(id));

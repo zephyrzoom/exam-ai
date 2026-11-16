@@ -45,10 +45,10 @@ public class QuestionService {
         }
         if (Consts.BANK_PRIVATE.equals(bankType)) {
             if (u.isPm()) {
-                w.eq(deptId != null, Question::getDeptId, deptId);
-            } else {
-                w.eq(Question::getDeptId, u.getDeptId());
+                // 项目管理部只维护公共题库，不持有私有题库
+                return new Page<>(pageNum, pageSize);
             }
+            w.eq(Question::getDeptId, u.getDeptId());
         }
         w.eq(StrUtil.isNotBlank(type), Question::getType, type)
                 .eq(StrUtil.isNotBlank(skill), Question::getSkill, skill)
@@ -61,6 +61,22 @@ public class QuestionService {
         Page<Question> page = questionMapper.selectPage(new Page<>(pageNum, pageSize), w);
         fillNames(page.getRecords());
         return page;
+    }
+
+    /** 当前角色可见的题库试题数：公共题库 + 本部门私有题库；项目管理部仅统计公共题库 */
+    public long visibleCount() {
+        LoginUser u = LoginUser.get();
+        LambdaQueryWrapper<Question> w = new LambdaQueryWrapper<>();
+        w.eq(Question::getStatus, Consts.STATUS_NORMAL);
+        if (u.isPm()) {
+            w.eq(Question::getBankType, Consts.BANK_PUBLIC);
+        } else {
+            w.and(x -> x.eq(Question::getBankType, Consts.BANK_PUBLIC)
+                    .or(y -> y.eq(Question::getBankType, Consts.BANK_PRIVATE)
+                            .eq(Question::getDeptId, u.getDeptId())));
+        }
+        Long count = questionMapper.selectCount(w);
+        return count == null ? 0 : count;
     }
 
     private void fillNames(List<Question> list) {

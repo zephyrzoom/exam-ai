@@ -28,9 +28,14 @@
         <span class="spacer"></span>
         <el-button v-if="!isPm" type="success" @click="openAdd">从题库补充试题</el-button>
       </div>
-      <el-table :data="questions" border stripe>
-        <el-table-column label="序" width="60">
-          <template #default="{ $index }">{{ $index + 1 }}</template>
+      <el-table :data="questions" border stripe row-key="questionId" ref="tableRef">
+        <el-table-column label="序" width="76">
+          <template #default="{ $index }">
+            <span class="seq-cell">
+              <el-icon v-if="!isPm" class="drag-handle" title="拖拽调整顺序"><Rank /></el-icon>
+              {{ $index + 1 }}
+            </span>
+          </template>
         </el-table-column>
         <el-table-column label="题型" width="90">
           <template #default="{ row }"><el-tag size="small">{{ typeNames[row.question?.type] }}</el-tag></template>
@@ -50,10 +55,8 @@
             <span v-else>{{ row.score }}</span>
           </template>
         </el-table-column>
-        <el-table-column v-if="!isPm" label="操作" width="170" fixed="right">
-          <template #default="{ row, $index }">
-            <el-button link :disabled="$index === 0" @click="move($index, -1)">上移</el-button>
-            <el-button link :disabled="$index === questions.length - 1" @click="move($index, 1)">下移</el-button>
+        <el-table-column v-if="!isPm" label="操作" width="80" fixed="right">
+          <template #default="{ row }">
             <el-button link type="danger" @click="removeQuestion(row)">移除</el-button>
           </template>
         </el-table-column>
@@ -148,9 +151,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import Sortable from 'sortablejs'
 import {
   getPaper, updatePaper, addPaperQuestions, removePaperQuestion, updatePaperQuestionScore,
   reorderPaper, paperLogs, pledgeTemplate, signPledge, publishPaper, pageQuestions, download
@@ -192,13 +196,40 @@ async function removeQuestion(row) {
   load()
 }
 
-async function move(index, dir) {
-  const ids = questions.value.map(q => q.questionId)
-  const [item] = ids.splice(index, 1)
-  ids.splice(index + dir, 0, item)
-  await reorderPaper(paperId, ids)
-  load()
+// ---------- 拖拽排序 ----------
+const tableRef = ref(null)
+let sortable = null
+
+function initSortable() {
+  if (isPm || sortable) return
+  const tbody = tableRef.value?.$el.querySelector('.el-table__body-wrapper tbody')
+  if (!tbody) return
+  sortable = Sortable.create(tbody, {
+    handle: '.drag-handle',
+    animation: 150,
+    ghostClass: 'drag-ghost',
+    chosenClass: 'drag-chosen',
+    async onEnd(evt) {
+      const { oldIndex, newIndex, item, from } = evt
+      if (oldIndex === newIndex) return
+      // 先还原 Sortable 对 DOM 的移动，交由 Vue 按数据渲染新顺序，避免 keyed diff 错位
+      from.removeChild(item)
+      from.insertBefore(item, from.children[oldIndex] || null)
+      const arr = [...questions.value]
+      const [moved] = arr.splice(oldIndex, 1)
+      arr.splice(newIndex, 0, moved)
+      questions.value = arr
+      try {
+        await reorderPaper(paperId, arr.map(q => q.questionId))
+        ElMessage.success(`已将第 ${oldIndex + 1} 题移动到第 ${newIndex + 1} 位`)
+      } finally {
+        load()
+      }
+    }
+  })
 }
+
+onBeforeUnmount(() => { sortable?.destroy(); sortable = null })
 
 // ---------- 补充试题 ----------
 const addVisible = ref(false)
@@ -272,10 +303,19 @@ onMounted(async () => {
   Object.assign(info, { name: paper.value.name, jobRequirement: paper.value.jobRequirement,
     assessTarget: paper.value.assessTarget, description: paper.value.description })
   loadLogs()
+  await nextTick()
+  initSortable()
 })
 </script>
 
 <style scoped>
 .pledge-text { white-space: pre-wrap; background: #f8f9fb; padding: 14px; border-radius: 6px;
   font-family: inherit; line-height: 1.8; max-height: 300px; overflow: auto; }
+.seq-cell { display: inline-flex; align-items: center; gap: 6px; }
+.drag-handle { cursor: grab; color: #a8abb2; font-size: 16px; }
+.drag-handle:hover { color: var(--el-color-primary); }
+.drag-handle:active { cursor: grabbing; }
+:deep(.drag-ghost) td { background: var(--el-color-primary-light-9) !important; }
+:deep(.drag-ghost) { opacity: 0.7; }
+:deep(.drag-chosen) td { background: var(--el-color-primary-light-9) !important; }
 </style>

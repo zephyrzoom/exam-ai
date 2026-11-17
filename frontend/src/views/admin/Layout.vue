@@ -1,7 +1,7 @@
 <template>
   <el-container style="min-height:100vh">
     <el-aside width="210px" class="aside">
-      <div class="logo">AI 考试系统</div>
+      <div class="logo">考试系统</div>
       <el-menu :default-active="$route.path" router background-color="#1f2d3d" text-color="#bfcbd9"
                active-text-color="#409eff">
         <el-menu-item index="/admin/dashboard"><el-icon><DataBoard /></el-icon>工作台</el-menu-item>

@@ -1,7 +1,7 @@
 <template>
   <div class="login-bg">
     <div class="login-box">
-      <h2>AI 考试系统</h2>
+      <h2>考试系统</h2>
       <p class="muted">管理端登录（项目管理部 / 各部门招聘负责人）</p>
       <el-form @submit.prevent="doLogin">
         <el-form-item>

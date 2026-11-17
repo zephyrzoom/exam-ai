@@ -127,8 +127,9 @@ public class HrClient {
 
     private List<ExamCandidate> mockCandidates(ExamProject project) {
         List<ExamCandidate> list = new ArrayList<>();
-        Random random = new Random(project.getId() * 31 + 7);
         for (int i = 0; i < MOCK_NAMES.length; i++) {
+            // 按人员固定种子：同一人在不同项目中的身份证/手机/供应商保持一致，考生端按身份证聚合多项目考试
+            Random random = new Random(i * 31L + 7);
             ExamCandidate c = new ExamCandidate();
             c.setProjectId(project.getId());
             c.setHrId("HR-" + project.getId() + "-" + (i + 1));

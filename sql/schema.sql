@@ -163,7 +163,7 @@ CREATE TABLE exam_record (
   switch_count INT DEFAULT 0 COMMENT '切屏次数',
   created_at DATETIME,
   updated_at DATETIME,
-  UNIQUE KEY uk_candidate (candidate_id),
+  UNIQUE KEY uk_project_candidate (project_id, candidate_id),
   KEY idx_project (project_id)
 ) ENGINE=InnoDB COMMENT='考试记录';
 

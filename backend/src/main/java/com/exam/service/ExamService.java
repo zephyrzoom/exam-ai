@@ -60,6 +60,7 @@ public class ExamService {
         if (now.isAfter(project.getEndTime())) throw new BusinessException("考试已结束");
 
         ExamRecord record = recordMapper.selectOne(new LambdaQueryWrapper<ExamRecord>()
+                .eq(ExamRecord::getProjectId, projectId)
                 .eq(ExamRecord::getCandidateId, candidateId));
         if (record == null) {
             record = new ExamRecord();

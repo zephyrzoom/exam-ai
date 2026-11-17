@@ -14,9 +14,6 @@
           进入考试
         </el-button>
       </el-form>
-      <div class="links">
-        <router-link to="/login">← 管理端入口</router-link>
-      </div>
     </div>
   </div>
 </template>
@@ -53,5 +50,4 @@ async function doLogin() {
 .login-box { width: 400px; background: #fff; border-radius: 12px; padding: 36px; }
 .login-box h2 { margin: 0 0 6px; text-align: center; }
 .login-box .muted { text-align: center; margin-bottom: 22px; }
-.links { margin-top: 14px; }
 </style>

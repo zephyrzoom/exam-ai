@@ -165,7 +165,6 @@
         <el-form-item label="手机"><el-input v-model="candForm.phone" /></el-form-item>
         <el-form-item label="邮箱"><el-input v-model="candForm.email" /></el-form-item>
         <el-form-item label="供应商"><el-input v-model="candForm.vendor" /></el-form-item>
-        <el-form-item label="用人部门"><el-input v-model="candForm.deptName" /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="candidateVisible = false">取消</el-button>
@@ -175,7 +174,7 @@
 
     <!-- Excel 导入 -->
     <el-dialog v-model="importVisible" title="Excel 导入考生" width="520px">
-      <el-alert type="info" :closable="false" style="margin-bottom:12px">列顺序：姓名 / 身份证号 / 手机 / 邮箱 / 供应商 / 用人部门</el-alert>
+      <el-alert type="info" :closable="false" style="margin-bottom:12px">列顺序：姓名 / 身份证号 / 手机 / 邮箱 / 供应商</el-alert>
       <el-upload drag :auto-upload="false" :limit="1" accept=".xlsx,.xls" :on-change="f => importFile = f.raw">
         <el-icon style="font-size:40px;color:#c0c4cc"><UploadFilled /></el-icon>
         <div>拖拽或点击选择 Excel 文件</div>
@@ -230,7 +229,7 @@ async function doHrSync() {
 }
 
 const candidateVisible = ref(false)
-const candForm = reactive({ name: '', idCard: '', phone: '', email: '', vendor: '', deptName: '' })
+const candForm = reactive({ name: '', idCard: '', phone: '', email: '', vendor: '' })
 async function addCandidate() {
   await apiAddCandidate(projectId, candForm)
   ElMessage.success('已添加')

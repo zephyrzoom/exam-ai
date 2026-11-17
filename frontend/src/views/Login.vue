@@ -15,9 +15,6 @@
           登 录
         </el-button>
       </el-form>
-      <div class="links">
-        <router-link to="/candidate-login">考生入口 →</router-link>
-      </div>
       <el-alert type="info" :closable="false" style="margin-top:14px">
         演示账号：admin / zhangsan / lisi / wangwu，密码均为 123456
       </el-alert>
@@ -59,5 +56,4 @@ async function doLogin() {
 .login-box { width: 400px; background: #fff; border-radius: 12px; padding: 36px; }
 .login-box h2 { margin: 0 0 6px; text-align: center; }
 .login-box .muted { text-align: center; margin-bottom: 22px; }
-.links { margin-top: 14px; text-align: right; }
 </style>

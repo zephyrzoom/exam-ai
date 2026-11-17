@@ -89,7 +89,7 @@ public class CandidateService {
         return res;
     }
 
-    /** Excel 列: 姓名 身份证号 手机 邮箱 供应商 用人部门 */
+    /** Excel 列: 姓名 身份证号 手机 邮箱 供应商 */
     public Map<String, Object> importExcel(Long projectId, MultipartFile file) throws IOException {
         projectService.checkWrite(projectService.get(projectId));
         List<Map<Integer, String>> rows = EasyExcel.read(file.getInputStream()).sheet().headRowNumber(1).doReadSync();
@@ -105,7 +105,6 @@ public class CandidateService {
                 c.setPhone(row.get(2));
                 c.setEmail(row.get(3));
                 c.setVendor(row.get(4));
-                c.setDeptName(row.get(5));
                 validate(c);
                 c.setProjectId(projectId);
                 c.setSource("EXCEL");
@@ -138,12 +137,12 @@ public class CandidateService {
         List<List<String>> head = Arrays.asList(
                 Collections.singletonList("姓名"), Collections.singletonList("身份证号"),
                 Collections.singletonList("手机"), Collections.singletonList("邮箱"),
-                Collections.singletonList("供应商"), Collections.singletonList("用人部门"),
+                Collections.singletonList("供应商"),
                 Collections.singletonList("来源"), Collections.singletonList("状态"));
         List<List<Object>> data = new ArrayList<>();
         for (ExamCandidate c : list) {
             data.add(Arrays.asList(c.getName(), c.getIdCard(), c.getPhone(), c.getEmail(),
-                    c.getVendor(), c.getDeptName(), sourceName(c.getSource()), statusName(c.getStatus())));
+                    c.getVendor(), sourceName(c.getSource()), statusName(c.getStatus())));
         }
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setCharacterEncoding("utf-8");
@@ -155,9 +154,9 @@ public class CandidateService {
         List<List<String>> head = Arrays.asList(
                 Collections.singletonList("姓名"), Collections.singletonList("身份证号"),
                 Collections.singletonList("手机"), Collections.singletonList("邮箱"),
-                Collections.singletonList("供应商"), Collections.singletonList("用人部门"));
+                Collections.singletonList("供应商"));
         List<List<Object>> demo = new ArrayList<>();
-        demo.add(Arrays.asList("示例考生", "110101199501011234", "13800000000", "demo@example.com", "示例供应商", "研发部"));
+        demo.add(Arrays.asList("示例考生", "110101199501011234", "13800000000", "demo@example.com", "示例供应商"));
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setCharacterEncoding("utf-8");
         response.setHeader("Content-Disposition", "attachment;filename=candidate_template.xlsx");

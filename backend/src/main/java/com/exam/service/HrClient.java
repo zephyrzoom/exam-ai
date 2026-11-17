@@ -64,7 +64,6 @@ public class HrClient {
                     c.setPhone(o.getStr("phone"));
                     c.setEmail(o.getStr("email"));
                     c.setVendor(o.getStr("vendor"));
-                    c.setDeptName(o.getStr("deptName"));
                     c.setSource("HR");
                     c.setStatus("NOT_ATTENDED");
                     result.add(c);
@@ -138,7 +137,6 @@ public class HrClient {
             c.setPhone("13" + (100000000 + random.nextInt(899999999)));
             c.setEmail("candidate" + (i + 1) + "_p" + project.getId() + "@example.com");
             c.setVendor(MOCK_VENDORS[random.nextInt(MOCK_VENDORS.length)]);
-            c.setDeptName(project.getDeptId() == null ? "" : String.valueOf(project.getDeptId()));
             c.setSource("HR");
             c.setStatus("NOT_ATTENDED");
             list.add(c);

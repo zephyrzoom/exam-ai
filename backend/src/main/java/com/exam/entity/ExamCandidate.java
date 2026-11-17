@@ -16,7 +16,6 @@ public class ExamCandidate {
     private String phone;
     private String email;
     private String vendor;
-    private String deptName;
     /** HR / EXCEL / MANUAL */
     private String source;
     private String hrId;

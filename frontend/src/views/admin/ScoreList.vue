@@ -15,6 +15,9 @@
         <template #default="{ row }">{{ mask(row.idCard) }}</template>
       </el-table-column>
       <el-table-column prop="vendor" label="供应商" width="120" />
+      <el-table-column label="交卷时间" width="160">
+        <template #default="{ row }">{{ row.submitTime || '-' }}</template>
+      </el-table-column>
       <el-table-column prop="objectiveScore" label="客观分" width="80" />
       <el-table-column prop="subjectiveScore" label="主观分" width="80" />
       <el-table-column prop="totalScore" label="总分" width="80" />

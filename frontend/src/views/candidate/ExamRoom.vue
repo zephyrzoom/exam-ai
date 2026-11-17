@@ -316,7 +316,7 @@ onBeforeUnmount(() => {
 .question-panel { flex: 1; background: #fff; border-radius: 8px; padding: 22px; }
 .q-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .q-text { font-size: 16px; line-height: 1.8; margin-bottom: 18px; }
-.opt-group { display: flex; flex-direction: column; gap: 12px; }
+.opt-group { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; width: 100%; }
 .opt-item { font-size: 15px; height: auto; white-space: normal; line-height: 1.6; }
 .q-footer { margin-top: 26px; display: flex; gap: 10px; }
 .done-box { max-width: 640px; margin: 60px auto; background: #fff; border-radius: 10px; padding: 20px; }

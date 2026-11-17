@@ -8,7 +8,7 @@
         <el-menu-item index="/admin/questions"><el-icon><Collection /></el-icon>试题管理</el-menu-item>
         <el-menu-item index="/admin/papers"><el-icon><Document /></el-icon>组卷管理</el-menu-item>
         <el-menu-item index="/admin/projects"><el-icon><Calendar /></el-icon>考试管理</el-menu-item>
-        <el-menu-item index="/admin/grading"><el-icon><EditPen /></el-icon>阅卷工作台</el-menu-item>
+        <el-menu-item v-if="!isPm" index="/admin/grading"><el-icon><EditPen /></el-icon>阅卷工作台</el-menu-item>
         <el-menu-item v-if="isPm" index="/admin/users"><el-icon><UserFilled /></el-icon>用户与部门</el-menu-item>
       </el-menu>
     </el-aside>

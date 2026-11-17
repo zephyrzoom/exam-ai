@@ -15,12 +15,14 @@
           地点：{{ p.location || '线上' }}　批次：{{ p.batch || '-' }}
         </div>
         <div style="margin-top:12px">
-          <el-tag v-if="p.candidateStatus === 'SUBMITTED'" type="success">已交卷</el-tag>
-          <el-tag v-else-if="p.state === 'NOT_STARTED'" type="info">未开始</el-tag>
-          <el-tag v-else-if="p.state === 'ENDED'" type="warning">已结束</el-tag>
-          <el-button v-else type="primary" @click="enter(p)">
+          <el-tag v-if="isEnded(p)" type="warning">已结束</el-tag>
+          <el-button v-else-if="isOpen(p)" type="primary" @click="enter(p)">
             {{ p.candidateStatus === 'ATTENDED' ? '继续作答' : '进入考试' }}
           </el-button>
+          <el-button v-else-if="secondsToStart(p) <= 60" type="primary" disabled>
+            距开始 {{ countdown(p) }}
+          </el-button>
+          <el-tag v-else type="info">未开始</el-tag>
         </div>
       </div>
     </div>
@@ -28,22 +30,38 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { myProjects } from '../../api'
 
 const router = useRouter()
 const userName = localStorage.getItem('userName')
 const projects = ref([])
+const now = ref(Date.now())
+let timer = null
 
 function enter(p) { router.push(`/candidate/exam/${p.projectId}`) }
+
+function ts(s) { return new Date(s.replace(' ', 'T')).getTime() }
+function secondsToStart(p) { return Math.max(0, Math.ceil((ts(p.startTime) - now.value) / 1000)) }
+function isOpen(p) { return now.value >= ts(p.startTime) && now.value < ts(p.endTime) }
+function isEnded(p) { return now.value >= ts(p.endTime) }
+function countdown(p) {
+  const s = secondsToStart(p)
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+}
 
 function logout() {
   localStorage.clear()
   router.push('/candidate-login')
 }
 
-onMounted(async () => { projects.value = await myProjects() })
+onMounted(async () => {
+  const list = await myProjects()
+  projects.value = list.filter(p => p.candidateStatus !== 'SUBMITTED')
+  timer = setInterval(() => { now.value = Date.now() }, 1000)
+})
+onUnmounted(() => clearInterval(timer))
 </script>
 
 <style scoped>

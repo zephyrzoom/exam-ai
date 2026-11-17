@@ -15,8 +15,8 @@ const routes = [
       { path: 'papers/:id', component: () => import('../views/admin/PaperEdit.vue') },
       { path: 'projects', component: () => import('../views/admin/ProjectList.vue') },
       { path: 'projects/:id', component: () => import('../views/admin/ProjectDetail.vue') },
-      { path: 'grading', component: () => import('../views/admin/GradingList.vue') },
-      { path: 'grading/:id', component: () => import('../views/admin/GradingDetail.vue') },
+      { path: 'grading', component: () => import('../views/admin/GradingList.vue'), meta: { notPm: true } },
+      { path: 'grading/:id', component: () => import('../views/admin/GradingDetail.vue'), meta: { notPm: true } },
       { path: 'projects/:id/scores', component: () => import('../views/admin/ScoreList.vue') },
       { path: 'projects/:id/analysis', component: () => import('../views/admin/Analysis.vue') },
       { path: 'report/:id', component: () => import('../views/admin/Report.vue') },
@@ -41,6 +41,7 @@ router.beforeEach((to, from, next) => {
   if (to.meta.admin) {
     if (!token || type !== 'admin') return next('/login')
     if (to.meta.pm && localStorage.getItem('role') !== 'PM_ADMIN') return next('/admin/dashboard')
+    if (to.meta.notPm && localStorage.getItem('role') === 'PM_ADMIN') return next('/admin/dashboard')
   }
   if (to.meta.candidate && (!token || type !== 'candidate')) return next('/candidate-login')
   next()

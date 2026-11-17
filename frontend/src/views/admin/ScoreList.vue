@@ -57,22 +57,27 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { projectScores, download } from '../../api'
+import { projectScores, getProject, download } from '../../api'
 
 const route = useRoute()
 const projectId = route.params.id
 const rows = ref([])
+const projectName = ref('')
 const loading = ref(false)
 const mask = id => id && id.length >= 10 ? id.slice(0, 6) + '********' + id.slice(-4) : id
 
 async function load() {
   loading.value = true
-  try { rows.value = await projectScores(projectId) }
+  try {
+    const [scores, project] = await Promise.all([projectScores(projectId), getProject(projectId)])
+    rows.value = scores
+    projectName.value = project.name
+  }
   finally { loading.value = false }
 }
 
 function exportScores() {
-  download(`/projects/${projectId}/scores/export`, '成绩表.xlsx')
+  download(`/projects/${projectId}/scores/export`, `${projectName.value}_成绩表.xlsx`)
 }
 
 onMounted(load)

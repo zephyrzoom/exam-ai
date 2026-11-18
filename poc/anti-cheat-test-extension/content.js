@@ -36,7 +36,9 @@
       out.textContent = '正在截图并请求视觉模型…';
       try {
         const res = await chrome.runtime.sendMessage({ type: 'POC_CAPTURE' });
-        out.textContent = res?.ok ? res.text : '失败：' + (res?.error || '未知错误');
+        out.textContent = res?.ok
+          ? res.text + (res.sources?.length ? '\n\n依据：' + res.sources.join('、') : '\n\n（知识库无匹配资料，模型自身知识作答）')
+          : '失败：' + (res?.error || '未知错误');
       } catch (e) {
         out.textContent = '失败：' + (e?.message || e);
       } finally {

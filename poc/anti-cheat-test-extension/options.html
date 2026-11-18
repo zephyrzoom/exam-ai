@@ -4,19 +4,22 @@
 <meta charset="utf-8">
 <title>防作弊测试 PoC 设置</title>
 <style>
-  body { font:14px/1.7 -apple-system,sans-serif; width:360px; padding:16px; color:#333; }
+  body { font:14px/1.7 -apple-system,sans-serif; width:380px; padding:16px; color:#333; }
   h3 { margin:0 0 4px; }
   .warn { background:#fff7e6; border:1px solid #ffd591; border-radius:6px; padding:8px 10px; font-size:12px; margin-bottom:12px; }
   label { display:block; margin:10px 0 2px; font-weight:600; font-size:13px; }
   input, textarea { width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid #ccc; border-radius:6px; font:inherit; }
+  input[type=file] { padding:4px; font-size:12px; }
   button { margin-top:14px; width:100%; padding:8px; border:none; border-radius:6px; background:#7c3aed; color:#fff; cursor:pointer; }
-  #status { margin-top:8px; font-size:12px; color:#666; white-space:pre-wrap; }
+  button.secondary { background:#eee; color:#555; margin-top:8px; }
+  #status, #kbStatus { margin-top:8px; font-size:12px; color:#666; white-space:pre-wrap; }
+  hr { border:none; border-top:1px solid #eee; margin:16px 0 4px; }
 </style>
 </head>
 <body>
 <h3>防作弊测试 PoC</h3>
 <div class="warn">仅供 exam-ai 自有系统的防护能力验证，禁止用于真实考试。<br>
-请在<b>进入考试前</b>完成配置：考试中途打开本弹窗/选项页会使考试页失焦，本身就会被记为切屏。</div>
+请在<b>进入考试前</b>完成配置与知识库导入：考试中途打开本弹窗/选项页会使考试页失焦，本身就会被记为切屏。</div>
 <label>OpenAI 兼容 Base URL</label>
 <input id="baseUrl" placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1">
 <label>API Key</label>
@@ -25,9 +28,17 @@
 <input id="model" placeholder="qwen-vl-plus">
 <label>考试系统地址（可多个，逗号/换行分隔，含端口；正式环境填部署 IP 或域名）</label>
 <textarea id="examOrigins" rows="3" placeholder="http://192.168.1.100&#10;http://localhost:5173"></textarea>
-<button id="save">保存</button>
+<hr>
+<label>知识库目录（PDF / DOCX / TXT / MD 等，本地解析建索引，作答时检索引用）</label>
+<input id="kbDir" type="file" webkitdirectory multiple>
+<div id="kbStatus">未导入知识库（作答将仅用模型自身知识）</div>
+<button id="kbClear" type="button" class="secondary">清空知识库</button>
+<button id="save">保存配置</button>
 <div id="status"></div>
-<div class="warn" style="margin-top:12px">地址保存后仅对<b>新加载</b>的页面生效，已打开的页面需刷新。</div>
+<div class="warn" style="margin-top:12px">地址保存后仅对<b>新加载</b>的页面生效，已打开的页面需刷新。扫描版 PDF（无文字层）与旧版 .doc 不支持。</div>
+<script src="vendor/pdf.min.js"></script>
+<script src="vendor/mammoth.browser.min.js"></script>
+<script src="kb.js"></script>
 <script src="options.js"></script>
 </body>
 </html>

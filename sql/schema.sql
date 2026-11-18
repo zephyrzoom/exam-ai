@@ -183,6 +183,7 @@ CREATE TABLE answer_record (
   review_comment VARCHAR(512),
   status VARCHAR(16) DEFAULT 'PENDING' COMMENT 'PENDING/AI_DONE/REVIEWED',
   sort_order INT DEFAULT 0,
+  option_order VARCHAR(64) COMMENT '考生选项乱序映射，JSON数组存原始下标，如[2,0,3,1]',
   KEY idx_record (record_id)
 ) ENGINE=InnoDB COMMENT='答题记录';
 

@@ -1,5 +1,6 @@
 package com.exam.service;
 
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.exam.common.BusinessException;
@@ -106,8 +107,56 @@ public class ExamService {
             ar.setSortOrder(pq.getSortOrder());
             ar.setStatus(Consts.ANS_PENDING);
             ar.setAnswer("");
+            ar.setOptionOrder(shuffledOrder(q));
             answerMapper.insert(ar);
         }
+    }
+
+    /** 单选/多选为每位考生生成选项乱序（存原始下标数组），其余题型保持原顺序 */
+    private String shuffledOrder(Question q) {
+        if (!Consts.Q_SINGLE.equals(q.getType()) && !Consts.Q_MULTI.equals(q.getType())) return null;
+        List<String> opts = q.getOptionsJson() == null ? Collections.emptyList()
+                : JSONUtil.toList(q.getOptionsJson(), String.class);
+        if (opts.size() < 2) return null;
+        List<Integer> order = new ArrayList<>();
+        for (int i = 0; i < opts.size(); i++) order.add(i);
+        Collections.shuffle(order);
+        boolean unchanged = true;
+        for (int i = 0; i < order.size(); i++) {
+            if (order.get(i) != i) { unchanged = false; break; }
+        }
+        if (unchanged) Collections.swap(order, 0, 1);
+        return JSONUtil.toJsonStr(order);
+    }
+
+    private List<Integer> optionOrder(AnswerRecord ar) {
+        return StrUtil.isBlank(ar.getOptionOrder()) ? null : JSONUtil.toList(ar.getOptionOrder(), Integer.class);
+    }
+
+    /** 考生看到的显示字母 → 题库标准字母（order[显示位置] = 原始下标） */
+    private String displayToCanonical(String answer, List<Integer> order) {
+        StringBuilder sb = new StringBuilder();
+        for (char c : answer.trim().toUpperCase().toCharArray()) {
+            int pos = c - 'A';
+            if (pos >= 0 && pos < order.size()) sb.append((char) ('A' + order.get(pos)));
+        }
+        return sortLetters(sb.toString());
+    }
+
+    /** 题库标准字母 → 考生看到的显示字母 */
+    private String canonicalToDisplay(String answer, List<Integer> order) {
+        StringBuilder sb = new StringBuilder();
+        for (char c : answer.trim().toUpperCase().toCharArray()) {
+            int pos = order.indexOf(c - 'A');
+            if (pos >= 0) sb.append((char) ('A' + pos));
+        }
+        return sortLetters(sb.toString());
+    }
+
+    private String sortLetters(String s) {
+        char[] cs = s.toCharArray();
+        Arrays.sort(cs);
+        return new String(cs);
     }
 
     private Map<String, Object> buildExamPaper(ExamRecord record, ExamProject project) {
@@ -122,12 +171,21 @@ public class ExamService {
             item.put("questionId", q.getId());
             item.put("type", q.getType());
             item.put("content", q.getContent());
-            item.put("options", q.getOptionsJson() == null ? Collections.emptyList()
-                    : JSONUtil.toList(q.getOptionsJson(), String.class));
+            List<String> opts = q.getOptionsJson() == null ? Collections.emptyList()
+                    : JSONUtil.toList(q.getOptionsJson(), String.class);
+            List<Integer> order = optionOrder(ar);
+            String savedAnswer = ar.getAnswer();
+            if (order != null && order.size() == opts.size()) {
+                List<String> displayOpts = new ArrayList<>(opts.size());
+                for (int idx : order) displayOpts.add(opts.get(idx));
+                opts = displayOpts;
+                savedAnswer = canonicalToDisplay(savedAnswer, order);
+            }
+            item.put("options", opts);
             item.put("score", ar.getFullScore());
             item.put("sortOrder", ar.getSortOrder());
             questions.add(item);
-            saved.put(ar.getQuestionId(), ar.getAnswer());
+            saved.put(ar.getQuestionId(), savedAnswer);
         }
         Map<String, Object> res = new HashMap<>();
         res.put("recordId", record.getId());
@@ -162,6 +220,10 @@ public class ExamService {
                 AnswerRecord ar = answerMapper.selectOne(new LambdaQueryWrapper<AnswerRecord>()
                         .eq(AnswerRecord::getRecordId, recordId).eq(AnswerRecord::getQuestionId, questionId));
                 if (ar != null) {
+                    List<Integer> order = optionOrder(ar);
+                    if (order != null) {
+                        answer = displayToCanonical(answer, order);
+                    }
                     ar.setAnswer(answer);
                     answerMapper.updateById(ar);
                 }

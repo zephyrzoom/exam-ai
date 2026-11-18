@@ -26,6 +26,8 @@ public class AnswerRecord {
     /** PENDING / AI_DONE / REVIEWED */
     private String status;
     private Integer sortOrder;
+    /** 考生选项乱序映射，JSON 数组存原始下标；null 表示按题库原始顺序 */
+    private String optionOrder;
 
     @TableField(exist = false)
     private Question question;

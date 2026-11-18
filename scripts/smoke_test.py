@@ -111,9 +111,32 @@ check("主动交卷", call("POST", "/exam/submit", ct, {"recordId": rid}))
 c1 = cands[1]
 cl2 = check("考生2登录", call("POST", "/auth/candidate-login", body={"idCard": c1["idCard"], "name": c1["name"]}))
 ex2 = check("考生2进入考试", call("POST", "/exam/enter", cl2["token"], {"projectId": projid}))
-ans2 = [{"questionId": q["questionId"], "answer": ("A" if q["type"] in ("SINGLE", "JUDGE") else ("AB" if q["type"] == "MULTI" else ""))} for q in ex2["questions"]]
+
+# 选项乱序回归：同一题两名考生选项集合一致、顺序不同
+canon = {pq["questionId"]: pq["question"] for pq in detail["questions"]}
+def objective_qs(ex):
+    return [q for q in ex["questions"] if q["type"] in ("SINGLE", "MULTI")]
+m1 = {q["questionId"]: q["options"] for q in objective_qs(exam)}
+m2 = {q["questionId"]: q["options"] for q in objective_qs(ex2)}
+same_set = all(sorted(m1[k]) == sorted(m2[k]) for k in m1)
+diff_order = any(m1[k] != m2[k] for k in m1)
+results.append(("选项乱序:选项集合一致", same_set)); print(("PASS " if same_set else "FAIL ") + "选项乱序:选项集合一致")
+results.append(("选项乱序:不同考生顺序不同", diff_order)); print(("PASS " if diff_order else "FAIL ") + "选项乱序:不同考生顺序不同")
+
+# 考生2按选项内容定位正确答案字母作答（验证乱序下判分映射）
+def correct_display(q):
+    cq = canon[q["questionId"]]
+    opts = json.loads(cq["optionsJson"])
+    pos = {opt: i for i, opt in enumerate(q["options"])}
+    return "".join(sorted("ABCDEFGH"[pos[opts[ord(c) - 65]]] for c in cq["answer"]))
+ans2 = [{"questionId": q["questionId"], "answer": (correct_display(q) if q["type"] != "ESSAY" else "")} for q in ex2["questions"]]
 call("POST", "/exam/save", cl2["token"], {"recordId": ex2["recordId"], "answers": ans2})
+ex2b = check("考生2中途重进", call("POST", "/exam/enter", cl2["token"], {"projectId": projid}))
+saved_ok = all(ex2b["savedAnswers"].get(str(q["questionId"])) == a["answer"] for q, a in zip(ex2b["questions"], ans2))
+order_stable = all(q["options"] == next(x["options"] for x in ex2["questions"] if x["questionId"] == q["questionId"]) for q in ex2b["questions"])
+results.append(("选项乱序:重进答案按乱序回显", saved_ok and order_stable)); print(("PASS " if saved_ok and order_stable else "FAIL ") + "选项乱序:重进答案按乱序回显")
 check("考生2交卷", call("POST", "/exam/submit", cl2["token"], {"recordId": ex2["recordId"]}))
+exp_obj = sum(float(q["score"]) for q in ex2["questions"] if q["type"] != "ESSAY")
 
 # 6. 判分复核
 time.sleep(2)
@@ -129,6 +152,8 @@ fin = check("合成总分", call("POST", f"/grading/records/{rid}/finalize", dt)
 print("  总分:", fin["totalScore"], "客观:", fin["objectiveScore"], "主观:", fin["subjectiveScore"], "排名:", fin["rankNo"], "及格:", fin["passed"])
 # 考生2全部确认
 gd2 = check("考生2阅卷详情", call("GET", f"/grading/records/{ex2['recordId']}", dt))
+obj_ok = gd2 and float(gd2["record"]["objectiveScore"]) == exp_obj
+results.append(("选项乱序:按内容作答判满分", obj_ok)); print(("PASS " if obj_ok else "FAIL ") + f"选项乱序:按内容作答判满分 (客观分 {gd2['record']['objectiveScore'] if gd2 else '-'} / 期望 {exp_obj})")
 for a in [x for x in gd2["answers"] if x["type"] == "ESSAY"]:
     call("POST", f"/grading/answers/{a['id']}/review", dt, {"score": 2, "comment": "未作答要点，低分"})
 check("考生2合成总分", call("POST", f"/grading/records/{ex2['recordId']}/finalize", dt))

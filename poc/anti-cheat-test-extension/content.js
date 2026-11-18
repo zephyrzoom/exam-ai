@@ -1,10 +1,8 @@
 (() => {
   const HOST_ID = 'exam-ai-poc-host';
-  const EXAM_PATH = /^\/candidate\/exam\//;
-  let host = null;
 
   function build() {
-    host = document.createElement('div');
+    const host = document.createElement('div');
     host.id = HOST_ID;
     host.style.cssText = 'position:fixed;right:24px;bottom:24px;z-index:2147483647;';
     const root = host.attachShadow({ mode: 'closed' });
@@ -49,11 +47,5 @@
     document.documentElement.appendChild(host);
   }
 
-  function sync() {
-    const onExam = EXAM_PATH.test(location.pathname);
-    if (onExam && !host) build();
-    else if (!onExam && host) { host.remove(); host = null; }
-  }
-  setInterval(sync, 1000);
-  sync();
+  if (!document.getElementById(HOST_ID)) build();
 })();

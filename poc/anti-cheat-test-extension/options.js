@@ -34,7 +34,7 @@ $('save').addEventListener('click', async () => {
     }
     await chrome.storage.sync.set({ baseUrl, apiKey, model, examOrigins });
     const res = await chrome.runtime.sendMessage({ type: 'POC_SYNC' });
-    status.textContent = res?.ok ? '已保存，考试页匹配地址已更新（已打开的考试页需刷新）。' : '保存成功但脚本注册失败：' + res?.error;
+    status.textContent = res?.ok ? '已保存，匹配地址已更新（已打开的页面需刷新）。' : '保存成功但脚本注册失败：' + res?.error;
   } catch (e) {
     status.textContent = '保存失败：' + (e?.message || e);
   }

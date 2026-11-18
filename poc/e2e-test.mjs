@@ -75,6 +75,8 @@ await fetch(CDP_HTTP + '/json/activate/' + page.id);
 
 await p.send('Page.navigate', { url: new URL('/candidate-login', setup.url).href });
 await waitFor(() => p.eval('document.readyState === "complete"'));
+await waitFor(() => p.eval('!!document.getElementById("exam-ai-poc-host")'));
+record('非考试页（登录页）也注入悬浮按钮', true);
 const login = await p.eval(`(async () => {
   const r = await fetch('/api/auth/candidate-login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(${JSON.stringify({ idCard: setup.idCard, name: setup.name })}) });
@@ -92,6 +94,12 @@ await waitFor(() => p.eval('!!document.querySelector(".question-panel")'));
 await waitFor(() => p.eval('!!document.getElementById("exam-ai-poc-host")'));
 record('考试页加载 + PoC 悬浮按钮注入', true);
 
+await p.eval(`window.__pocEvents = [];
+window.addEventListener('blur', () => __pocEvents.push(['blur', Date.now()]));
+window.addEventListener('focus', () => __pocEvents.push(['focus', Date.now()]));
+document.addEventListener('visibilitychange', () => __pocEvents.push(['vis:' + document.visibilityState, Date.now()]));
+'ok'`);
+
 const enterExpr = `(async () => {
   const r = await fetch('/api/exam/enter', { method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('token') },
@@ -102,6 +110,7 @@ const enterExpr = `(async () => {
 const before = await p.eval(enterExpr, true);
 record('基线 switchCount = 0', before === 0, 'switchCount=' + before);
 
+const tClick = Date.now();
 const rect = await p.eval('(() => { const r = document.getElementById("exam-ai-poc-host").getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()');
 await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: rect.x, y: rect.y, button: 'left', clickCount: 1 });
 await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: rect.x, y: rect.y, button: 'left', clickCount: 1 });
@@ -126,6 +135,7 @@ record('captureVisibleTab 截到真实页面 PNG', capLen > 10000, 'dataUrl 长�
 
 const after = await p.eval(enterExpr, true);
 const warn = await p.eval('!!document.querySelector(".cheat-warn")');
+console.log('焦点事件流:', await p.eval('JSON.stringify(window.__pocEvents)'), '| 点击时刻:', tClick);
 record('PoC 点击 + 截图后 switchCount 仍为 0', after === 0, 'switchCount=' + after);
 record('考试页无切屏警告条', !warn);
 fs.writeFileSync('/tmp/exam-poc-clean.png', Buffer.from((await p.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));

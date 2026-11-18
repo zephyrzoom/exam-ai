@@ -6,6 +6,9 @@
         <el-option label="草稿" value="DRAFT" /><el-option label="已发布" value="PUBLISHED" />
         <el-option label="已结束" value="FINISHED" />
       </el-select>
+      <el-select v-if="isPm" v-model="query.deptId" placeholder="部门" clearable style="width:150px" @change="load">
+        <el-option v-for="d in depts" :key="d.id" :label="d.name" :value="d.id" />
+      </el-select>
       <el-button type="primary" @click="load">查询</el-button>
       <span class="spacer"></span>
       <el-button v-if="!isPm" type="success" @click="openEdit()">创建笔试项目</el-button>
@@ -14,6 +17,7 @@
     <el-table :data="rows" border stripe v-loading="loading">
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="name" label="项目名称" min-width="180" show-overflow-tooltip />
+      <el-table-column v-if="isPm" prop="deptName" label="部门" width="120" show-overflow-tooltip />
       <el-table-column prop="paperName" label="试卷" min-width="150" show-overflow-tooltip />
       <el-table-column prop="batch" label="批次" width="90" />
       <el-table-column prop="location" label="地点" width="100" show-overflow-tooltip />
@@ -76,13 +80,14 @@
 <script setup>
 import { reactive, ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { pageProjects, createProject, updateProject, deleteProject, pagePapers } from '../../api'
+import { pageProjects, createProject, updateProject, deleteProject, pagePapers, listDepts } from '../../api'
 
 const isPm = localStorage.getItem('role') === 'PM_ADMIN'
 const rows = ref([])
 const total = ref(0)
 const loading = ref(false)
-const query = reactive({ pageNum: 1, pageSize: 10, name: '', status: '' })
+const depts = ref([])
+const query = reactive({ pageNum: 1, pageSize: 10, name: '', status: '', deptId: null })
 const papers = ref([])
 
 async function load() {
@@ -128,5 +133,8 @@ async function remove(row) {
   load()
 }
 
-onMounted(load)
+onMounted(async () => {
+  if (isPm) depts.value = await listDepts()
+  load()
+})
 </script>

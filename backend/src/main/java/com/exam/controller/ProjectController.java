@@ -42,8 +42,9 @@ public class ProjectController {
     public Result<Page<ExamProject>> page(@RequestParam(defaultValue = "1") int pageNum,
                                           @RequestParam(defaultValue = "10") int pageSize,
                                           @RequestParam(required = false) String name,
-                                          @RequestParam(required = false) String status) {
-        return Result.ok(projectService.page(pageNum, pageSize, name, status));
+                                          @RequestParam(required = false) String status,
+                                          @RequestParam(required = false) Long deptId) {
+        return Result.ok(projectService.page(pageNum, pageSize, name, status, deptId));
     }
 
     @GetMapping("/{id}")

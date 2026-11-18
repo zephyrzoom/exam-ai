@@ -5,6 +5,9 @@
       <el-select v-model="query.status" placeholder="状态" clearable style="width:130px" @change="load">
         <el-option label="草稿" value="DRAFT" /><el-option label="已发布" value="PUBLISHED" />
       </el-select>
+      <el-select v-if="isPm" v-model="query.deptId" placeholder="部门" clearable style="width:150px" @change="load">
+        <el-option v-for="d in depts" :key="d.id" :label="d.name" :value="d.id" />
+      </el-select>
       <el-date-picker v-model="createdRange" type="daterange" range-separator="至"
                       start-placeholder="创建开始" end-placeholder="创建结束"
                       value-format="YYYY-MM-DD" style="width:260px" @change="onRangeChange" />
@@ -17,6 +20,7 @@
     <el-table :data="rows" border stripe v-loading="loading">
       <el-table-column prop="id" label="ID" width="65" />
       <el-table-column prop="name" label="试卷名称" min-width="200" show-overflow-tooltip />
+      <el-table-column v-if="isPm" prop="deptName" label="部门" width="120" show-overflow-tooltip />
       <el-table-column prop="questionCount" label="题量" width="70" />
       <el-table-column prop="totalScore" label="总分" width="80" />
       <el-table-column label="状态" width="90">
@@ -104,14 +108,15 @@
 import { reactive, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { pagePapers, aiCompose, createPaper, copyPaper, deletePaper, download } from '../../api'
+import { pagePapers, aiCompose, createPaper, copyPaper, deletePaper, download, listDepts } from '../../api'
 
 const router = useRouter()
 const isPm = localStorage.getItem('role') === 'PM_ADMIN'
 const rows = ref([])
 const total = ref(0)
 const loading = ref(false)
-const query = reactive({ pageNum: 1, pageSize: 10, name: '', status: '', createdBegin: '', createdEnd: '' })
+const depts = ref([])
+const query = reactive({ pageNum: 1, pageSize: 10, name: '', status: '', deptId: null, createdBegin: '', createdEnd: '' })
 const createdRange = ref(null)
 
 function onRangeChange(v) {
@@ -189,7 +194,10 @@ function exportPaper(row, format) {
   download(`/papers/${row.id}/export?format=${format}`, `${row.name}.${format === 'pdf' ? 'pdf' : 'docx'}`)
 }
 
-onMounted(load)
+onMounted(async () => {
+  if (isPm) depts.value = await listDepts()
+  load()
+})
 </script>
 
 <style scoped>

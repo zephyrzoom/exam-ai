@@ -21,9 +21,9 @@
       <h3>快捷入口</h3>
       <el-space wrap>
         <el-button type="primary" @click="$router.push('/admin/questions')">维护题库</el-button>
-        <el-button type="success" @click="$router.push('/admin/papers')">AI 组卷</el-button>
-        <el-button type="warning" @click="$router.push('/admin/projects')">创建笔试项目</el-button>
-        <el-button @click="$router.push('/admin/grading')">进入阅卷</el-button>
+        <el-button type="success" @click="$router.push('/admin/papers')">{{ isPm ? '查看试卷' : 'AI 组卷' }}</el-button>
+        <el-button type="warning" @click="$router.push('/admin/projects')">{{ isPm ? '查看笔试项目' : '创建笔试项目' }}</el-button>
+        <el-button v-if="!isPm" @click="$router.push('/admin/grading')">进入阅卷</el-button>
       </el-space>
     </div>
   </div>
@@ -34,6 +34,7 @@ import { reactive, onMounted } from 'vue'
 import { countQuestions, pagePapers, pageProjects, gradingRecords } from '../../api'
 
 const stats = reactive({ questions: 0, papers: 0, projects: 0, pendingReview: 0 })
+const isPm = localStorage.getItem('role') === 'PM_ADMIN'
 
 onMounted(async () => {
   const [q, p, pr, g] = await Promise.all([

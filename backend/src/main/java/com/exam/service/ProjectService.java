@@ -36,10 +36,11 @@ public class ProjectService {
         this.userMapper = userMapper;
     }
 
-    public Page<ExamProject> page(int pageNum, int pageSize, String name, String status) {
+    public Page<ExamProject> page(int pageNum, int pageSize, String name, String status, Long deptId) {
         LoginUser u = LoginUser.get();
         LambdaQueryWrapper<ExamProject> w = new LambdaQueryWrapper<>();
         if (!u.isPm()) w.eq(ExamProject::getDeptId, u.getDeptId());
+        else w.eq(deptId != null, ExamProject::getDeptId, deptId);
         w.like(StrUtil.isNotBlank(name), ExamProject::getName, name)
                 .eq(StrUtil.isNotBlank(status), ExamProject::getStatus, status)
                 .orderByDesc(ExamProject::getId);

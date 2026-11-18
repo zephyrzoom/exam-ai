@@ -60,7 +60,12 @@ await waitFor(async () => { try { return await opt.eval('typeof chrome !== "unde
 const manifestName = await opt.eval('chrome.runtime.getManifest().name');
 if (!String(manifestName).includes('exam-ai')) throw new Error('PoC 插件未加载: ' + manifestName);
 console.log('PoC 插件已加载, extension id =', extId);
-await opt.eval(`chrome.storage.sync.set({baseUrl:'https://dashscope.aliyuncs.com/compatible-mode/v1',apiKey:'sk-poc-dummy-key',model:'qwen-vl-plus'})`, true);
+const examOrigin = new URL(setup.url).origin;
+await opt.eval(`chrome.storage.sync.set({baseUrl:'https://dashscope.aliyuncs.com/compatible-mode/v1',apiKey:'sk-poc-dummy-key',model:'qwen-vl-plus',examOrigins:'${examOrigin}'})`, true);
+const syncRes = await opt.eval(`chrome.runtime.sendMessage({type:'POC_SYNC'})`, true);
+record('按配置地址动态注册内容脚本', syncRes?.ok === true, JSON.stringify(syncRes));
+const matches = await opt.eval(`chrome.scripting.getRegisteredContentScripts({ids:['poc-exam-content']}).then(s => s[0]?.matches)`, true);
+record('注册 matches 与配置地址一致', JSON.stringify(matches) === JSON.stringify([examOrigin + '/*']), JSON.stringify(matches));
 
 // 考试页标签最后创建，保证它是活动标签且此后不再切换
 const page = await (await fetch(CDP_HTTP + '/json/new?' + encodeURIComponent('about:blank'), { method: 'PUT' })).json();
@@ -68,7 +73,7 @@ const p = await CDP.connect(page.webSocketDebuggerUrl);
 await p.send('Page.enable'); await p.send('Runtime.enable'); await p.send('DOM.enable');
 await fetch(CDP_HTTP + '/json/activate/' + page.id);
 
-await p.send('Page.navigate', { url: 'http://localhost:5173/candidate-login' });
+await p.send('Page.navigate', { url: new URL('/candidate-login', setup.url).href });
 await waitFor(() => p.eval('document.readyState === "complete"'));
 const login = await p.eval(`(async () => {
   const r = await fetch('/api/auth/candidate-login', { method: 'POST', headers: { 'Content-Type': 'application/json' },

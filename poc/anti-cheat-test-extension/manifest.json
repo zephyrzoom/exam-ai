@@ -1,24 +1,11 @@
 {
   "manifest_version": 3,
   "name": "exam-ai 防作弊测试 PoC（内部授权测试专用）",
-  "version": "0.1.0",
-  "description": "仅用于 exam-ai 自有系统的切屏防护能力验证：页内悬浮按钮截图当前考题并请求视觉大模型，检验是否触发切屏/失焦检测。禁止用于任何真实考试。",
-  "permissions": ["storage"],
+  "version": "0.2.0",
+  "description": "仅用于 exam-ai 自有系统的切屏防护能力验证：页内悬浮按钮截图当前考题并请求视觉大模型，检验是否触发切屏/失焦检测。考试地址在选项页配置。禁止用于任何真实考试。",
+  "permissions": ["storage", "scripting"],
   "host_permissions": ["<all_urls>"],
-  "optional_host_permissions": ["https://*/*", "http://*/*"],
   "background": { "service_worker": "background.js" },
-  "content_scripts": [
-    {
-      "matches": [
-        "http://localhost:5173/*",
-        "http://127.0.0.1:5173/*",
-        "http://localhost/*",
-        "http://127.0.0.1/*"
-      ],
-      "js": ["content.js"],
-      "run_at": "document_idle"
-    }
-  ],
   "options_page": "options.html",
   "action": { "default_title": "防作弊测试 PoC 设置", "default_popup": "options.html" }
 }

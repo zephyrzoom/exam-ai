@@ -8,7 +8,7 @@
   h3 { margin:0 0 4px; }
   .warn { background:#fff7e6; border:1px solid #ffd591; border-radius:6px; padding:8px 10px; font-size:12px; margin-bottom:12px; }
   label { display:block; margin:10px 0 2px; font-weight:600; font-size:13px; }
-  input { width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid #ccc; border-radius:6px; }
+  input, textarea { width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid #ccc; border-radius:6px; font:inherit; }
   button { margin-top:14px; width:100%; padding:8px; border:none; border-radius:6px; background:#7c3aed; color:#fff; cursor:pointer; }
   #status { margin-top:8px; font-size:12px; color:#666; white-space:pre-wrap; }
 </style>
@@ -23,8 +23,11 @@
 <input id="apiKey" type="password" placeholder="sk-...">
 <label>视觉模型</label>
 <input id="model" placeholder="qwen-vl-plus">
+<label>考试系统地址（可多个，逗号/换行分隔，含端口；正式环境填部署 IP 或域名）</label>
+<textarea id="examOrigins" rows="3" placeholder="http://192.168.1.100&#10;http://localhost:5173"></textarea>
 <button id="save">保存</button>
 <div id="status"></div>
+<div class="warn" style="margin-top:12px">地址保存后仅对<b>新加载</b>的考试页生效，已打开的考试页需刷新。</div>
 <script src="options.js"></script>
 </body>
 </html>

@@ -11,6 +11,7 @@ ZIP="$OUT_DIR/exam-ai-$(date +%Y%m%d-%H%M%S).zip"
 cd "$ROOT"
 zip -rq "$ZIP" . \
   -x '.git/*' \
+     'poc/*' \
      'node_modules/*' '*/node_modules/*' \
      'target/*' '*/target/*' \
      'dist/*' '*/dist/*' \

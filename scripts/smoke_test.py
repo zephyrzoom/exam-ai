@@ -178,6 +178,129 @@ print("  回传:", push["count"], "条, mock:", push["mock"])
 logs = check("HR同步日志", call("GET", f"/projects/{projid}/hr-sync-logs", dt))
 print("  同步日志:", [(l["direction"], l["status"]) for l in logs])
 
+# 8.5 编组模式
+import io, openpyxl
+
+def upload(path, token, filename, content):
+    boundary = "----smokeboundary123456"
+    body = io.BytesIO()
+    body.write(f"--{boundary}\r\n".encode())
+    body.write(f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'.encode())
+    body.write(b"Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n")
+    body.write(content); body.write(b"\r\n")
+    body.write(f"--{boundary}--\r\n".encode())
+    req = urllib.request.Request(BASE + path, data=body.getvalue(), method="POST")
+    req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+    req.add_header("Authorization", "Bearer " + token)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r: return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        return {"code": e.code, "msg": e.read().decode()[:300]}
+
+def proj_body(name, mode):
+    return {"name": name, "paperId": pid, "mode": mode, "durationMin": 60, "location": "线上",
+            "batch": "编组批", "startTime": (now - datetime.timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S"),
+            "endTime": (now + datetime.timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S"),
+            "passScore": round(float(detail["paper"]["totalScore"]) * 0.6, 1)}
+
+gproj = check("创建编组项目", call("POST", "/projects", dt, proj_body("冒烟测试-编组笔试", "GROUP")))
+gpid = gproj["id"]
+check("编组项目模式字段", call("GET", f"/projects/{gpid}", dt), lambda r: r["data"]["mode"] == "GROUP")
+check("个人项目默认模式", call("GET", f"/projects/{projid}", dt), lambda r: r["data"]["mode"] == "INDIVIDUAL")
+
+# 手动添加：A组2人(甲全对/乙全错)、B组1人(丙全对)、未分组1人(丁缺考)
+manual = [("组甲", "110101199001011111", "A组"), ("组乙", "110101199001012222", "A组"),
+          ("组丙", "110101199001013333", "B组"), ("组丁", "110101199001014444", None)]
+for name, idc, grp in manual:
+    body = {"name": name, "idCard": idc, "vendor": "测试供应商"}
+    if grp: body["groupName"] = grp
+    check(f"手动添加考生{name}", call("POST", f"/projects/{gpid}/candidates", dt, body))
+# 编辑分组：把丙临时改到A组再改回B组，验证编辑接口
+clist = check("编组考生名单", call("GET", f"/projects/{gpid}/candidates", dt))
+bing = next(c for c in clist if c["name"] == "组丙")
+check("编辑考生分组", call("PUT", f"/projects/{gpid}/candidates/{bing['id']}", dt,
+      {"name": "组丙", "groupName": "B组", "vendor": "测试供应商"}), lambda r: r["data"]["groupName"] == "B组")
+check("发布编组项目", call("POST", f"/projects/{gpid}/publish", dt))
+
+def group_take(idc, name, correct):
+    ct = check(f"考生{name}登录", call("POST", "/auth/candidate-login", body={"idCard": idc, "name": name}))["token"]
+    ex = check(f"考生{name}进入考试", call("POST", "/exam/enter", ct, {"projectId": gpid}))
+    rid = ex["recordId"]
+    ans = []
+    for q in ex["questions"]:
+        cq = canon[q["questionId"]]
+        if q["type"] == "ESSAY": a = ""
+        elif correct: a = correct_display(q)
+        elif q["type"] == "JUDGE": a = "B" if cq["answer"] == "A" else "A"
+        elif q["type"] == "SINGLE": a = "B" if cq["answer"] != "B" else "A"
+        else: a = next(l for l in "ABCDEFGH" if l not in cq["answer"])
+        ans.append({"questionId": q["questionId"], "answer": a})
+    call("POST", "/exam/save", ct, {"recordId": rid, "answers": ans})
+    check(f"考生{name}交卷", call("POST", "/exam/submit", ct, {"recordId": rid}))
+    return rid
+
+rid_jia = group_take("110101199001011111", "组甲", True)
+rid_yi = group_take("110101199001012222", "组乙", False)
+rid_bing = group_take("110101199001013333", "组丙", True)
+time.sleep(2)
+def group_grade(rid):
+    gd = call("GET", f"/grading/records/{rid}", dt)["data"]
+    for a in gd["answers"]:
+        if a["type"] == "ESSAY":
+            call("POST", f"/grading/answers/{a['id']}/review", dt, {"score": 0, "comment": "空答案0分"})
+    return check(f"合成总分{rid}", call("POST", f"/grading/records/{rid}/finalize", dt))
+fin_jia = group_grade(rid_jia); fin_yi = group_grade(rid_yi); fin_bing = group_grade(rid_bing)
+check("结束编组项目(丁缺考)", call("POST", f"/projects/{gpid}/finish", dt))
+
+gscores = check("编组成绩查询", call("GET", f"/projects/{gpid}/scores", dt))
+gname = {r["candidateName"]: r.get("groupName") for r in gscores}
+results.append(("成绩含组名", gname.get("组甲") == "A组" and gname.get("组丙") == "B组" and gname.get("组丁") is None))
+print(("PASS " if results[-1][1] else "FAIL ") + f"成绩含组名 {gname}")
+
+groups = check("组平均成绩", call("GET", f"/projects/{gpid}/score-groups", dt))
+gmap = {g["groupName"]: g for g in groups}
+O = float(exp_obj)
+t_jia, t_yi, t_bing = float(fin_jia["totalScore"]), float(fin_yi["totalScore"]), float(fin_bing["totalScore"])
+expA, expB = round((t_jia + t_yi) / 2, 2), round(t_bing, 2)
+results.append(("全对考生判满分", t_jia == O and t_bing == O)); print(("PASS " if t_jia == O and t_bing == O else "FAIL ") + f"全对考生判满分 (甲{t_jia}/丙{t_bing}/期望{O})")
+ok_avg = ("A组" in gmap and "B组" in gmap and "未分组" in gmap
+          and gmap["A组"]["memberCount"] == 2 and gmap["A组"]["gradedCount"] == 2
+          and abs(float(gmap["A组"]["avgScore"]) - expA) < 0.01
+          and gmap["B组"]["memberCount"] == 1 and abs(float(gmap["B组"]["avgScore"]) - expB) < 0.01
+          and gmap["未分组"]["memberCount"] == 1 and gmap["未分组"]["gradedCount"] == 0
+          and gmap["未分组"]["absentCount"] == 1 and gmap["未分组"].get("avgScore") is None)
+results.append(("组平均成绩正确", ok_avg)); print(("PASS " if ok_avg else "FAIL ") + f"组平均成绩正确 期望A组{expA}/B组{expB} 实际{json.dumps(gmap, ensure_ascii=False)}")
+
+# 成绩导出：编组双sheet+组名列；个人模式仍单sheet
+gxlsx = call("GET", f"/projects/{gpid}/scores/export", dt, raw=True)
+gwb = openpyxl.load_workbook(io.BytesIO(gxlsx))
+ghead = [c.value for c in gwb["成绩"][1]]
+grow = {r[0].value: r for r in gwb["组平均成绩"].iter_rows(min_row=2)}
+ok_xlsx = (gwb.sheetnames == ["成绩", "组平均成绩"] and ghead[2] == "组名"
+           and "A组" in grow and abs(float(grow["A组"][4].value) - expA) < 0.01
+           and "B组" in grow and abs(float(grow["B组"][4].value) - expB) < 0.01
+           and "未分组" in grow and grow["未分组"][4].value == "-")
+results.append(("编组成绩Excel双sheet", ok_xlsx)); print(("PASS " if ok_xlsx else "FAIL ") + f"编组成绩Excel双sheet sheets={gwb.sheetnames} 组名列={ghead[2]} A组平均={grow['A组'][4].value if 'A组' in grow else '-'}")
+iwb = openpyxl.load_workbook(io.BytesIO(call("GET", f"/projects/{projid}/scores/export", dt, raw=True)))
+ok_single = iwb.sheetnames == ["成绩"] and "组名" not in [c.value for c in iwb["成绩"][1]]
+results.append(("个人成绩Excel仍单sheet", ok_single)); print(("PASS " if ok_single else "FAIL ") + f"个人成绩Excel仍单sheet {iwb.sheetnames}")
+
+# Excel 导入含组名列（独立项目，避免影响组平均）
+iproj = check("创建导入测试项目", call("POST", "/projects", dt, proj_body("冒烟测试-导入编组", "GROUP")))
+ipid = iproj["id"]
+wb = openpyxl.Workbook(); ws = wb.active
+ws.append(["姓名", "身份证号", "手机", "邮箱", "供应商", "组名"])
+ws.append(["导入甲", "110101199002021111", "13800000001", "a@x.com", "供应商X", "C组"])
+ws.append(["导入乙", "110101199002022222", "13800000002", "b@x.com", "供应商X", "C组"])
+buf = io.BytesIO(); wb.save(buf)
+check("Excel导入含组名", upload(f"/projects/{ipid}/candidates/import", dt, "import.xlsx", buf.getvalue()),
+      lambda r: r["data"]["success"] == 2)
+check("导入考生组名解析", call("GET", f"/projects/{ipid}/candidates", dt),
+      lambda r: len(r["data"]) == 2 and all(c["groupName"] == "C组" for c in r["data"]))
+cexp = openpyxl.load_workbook(io.BytesIO(call("GET", f"/projects/{ipid}/candidates/export", dt, raw=True)))
+chead = [c.value for c in cexp["考生名单"][1]]
+results.append(("名单导出含组名列", "组名" in chead)); print(("PASS " if "组名" in chead else "FAIL ") + f"名单导出含组名列 {chead}")
+
 # 9. 权限隔离
 r = call("GET", "/papers", call("POST", "/auth/login", body={"username": "lisi", "password": "123456"})["data"]["token"])
 results.append(("部门数据隔离", all(p["deptId"] == 3 for p in r["data"]["records"])))

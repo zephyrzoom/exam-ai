@@ -20,6 +20,8 @@ public class ExamProject {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private BigDecimal passScore;
+    /** INDIVIDUAL / GROUP */
+    private String mode;
     /** DRAFT / PUBLISHED / FINISHED */
     private String status;
     private Long creatorId;

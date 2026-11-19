@@ -106,6 +106,9 @@ public class ProjectService {
 
     private void validate(ExamProject p) {
         if (StrUtil.isBlank(p.getName())) throw new BusinessException("项目名称不能为空");
+        if (StrUtil.isBlank(p.getMode())) p.setMode(Consts.MODE_INDIVIDUAL);
+        if (!Consts.MODE_INDIVIDUAL.equals(p.getMode()) && !Consts.MODE_GROUP.equals(p.getMode()))
+            throw new BusinessException("考试模式不合法");
         if (p.getPaperId() == null) throw new BusinessException("请选择试卷");
         Paper paper = paperMapper.selectById(p.getPaperId());
         if (paper == null) throw new BusinessException("试卷不存在");
@@ -132,6 +135,7 @@ public class ProjectService {
         old.setStartTime(p.getStartTime());
         old.setEndTime(p.getEndTime());
         old.setPassScore(p.getPassScore());
+        old.setMode(p.getMode());
         projectMapper.updateById(old);
         return old;
     }

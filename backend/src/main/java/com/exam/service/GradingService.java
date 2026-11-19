@@ -279,6 +279,7 @@ public class GradingService {
                 r.setCandidateName(c.getName());
                 r.setIdCard(c.getIdCard());
                 r.setVendor(c.getVendor());
+                r.setGroupName(c.getGroupName());
             }
             r.setProjectName(projects.get(r.getProjectId()));
         }

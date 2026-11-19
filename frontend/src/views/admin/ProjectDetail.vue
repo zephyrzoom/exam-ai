@@ -20,6 +20,7 @@
         <el-descriptions-item label="截止时间">{{ project.endTime }}</el-descriptions-item>
         <el-descriptions-item label="批次">{{ project.batch || '-' }}</el-descriptions-item>
         <el-descriptions-item label="地点">{{ project.location || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="考试模式">{{ project.mode === 'GROUP' ? '编组模式' : '个人模式' }}</el-descriptions-item>
         <el-descriptions-item label="创建人">{{ project.creatorName }}</el-descriptions-item>
         <el-descriptions-item label="考生数">{{ project.candidateCount }}</el-descriptions-item>
       </el-descriptions>
@@ -31,12 +32,15 @@
         <div class="toolbar" v-if="!isPm">
           <el-button type="primary" @click="doHrSync" :loading="syncing">从人事系统同步</el-button>
           <el-button @click="importVisible = true">Excel 导入</el-button>
-          <el-button @click="candidateVisible = true">手动添加</el-button>
+          <el-button @click="openAdd">手动添加</el-button>
           <span class="spacer"></span>
           <el-button @click="download(`/projects/${projectId}/candidates/export`, '考生名单.xlsx')">导出名单</el-button>
         </div>
         <el-table :data="candidates" border stripe>
           <el-table-column prop="name" label="姓名" width="100" />
+          <el-table-column v-if="isGroup" label="组" width="110">
+            <template #default="{ row }">{{ row.groupName || '未分组' }}</template>
+          </el-table-column>
           <el-table-column label="身份证号" width="190">
             <template #default="{ row }">{{ mask(row.idCard) }}</template>
           </el-table-column>
@@ -53,8 +57,9 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column v-if="!isPm" label="操作" width="80">
+          <el-table-column v-if="!isPm" label="操作" width="130">
             <template #default="{ row }">
+              <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
               <el-button link type="danger" @click="removeCandidate(row)">移除</el-button>
             </template>
           </el-table-column>
@@ -157,24 +162,30 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- 手动添加考生 -->
-    <el-dialog v-model="candidateVisible" title="手动添加考生" width="520px">
+    <!-- 手动添加 / 编辑考生 -->
+    <el-dialog v-model="candidateVisible" :title="candForm.id ? '编辑考生' : '手动添加考生'" width="520px">
       <el-form label-width="90px">
         <el-form-item label="姓名" required><el-input v-model="candForm.name" /></el-form-item>
-        <el-form-item label="身份证号" required><el-input v-model="candForm.idCard" /></el-form-item>
+        <el-form-item label="身份证号" required><el-input v-model="candForm.idCard" :disabled="!!candForm.id" /></el-form-item>
+        <el-form-item v-if="isGroup" label="组名">
+          <el-select v-model="candForm.groupName" filterable allow-create default-first-option clearable
+                     placeholder="选择已有组或输入新组名" style="width:100%">
+            <el-option v-for="g in groupOptions" :key="g" :label="g" :value="g" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="手机"><el-input v-model="candForm.phone" /></el-form-item>
         <el-form-item label="邮箱"><el-input v-model="candForm.email" /></el-form-item>
         <el-form-item label="供应商"><el-input v-model="candForm.vendor" /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="candidateVisible = false">取消</el-button>
-        <el-button type="primary" @click="addCandidate">添加</el-button>
+        <el-button type="primary" @click="saveCandidate">{{ candForm.id ? '保存' : '添加' }}</el-button>
       </template>
     </el-dialog>
 
     <!-- Excel 导入 -->
     <el-dialog v-model="importVisible" title="Excel 导入考生" width="520px">
-      <el-alert type="info" :closable="false" style="margin-bottom:12px">列顺序：姓名 / 身份证号 / 手机 / 邮箱 / 供应商</el-alert>
+      <el-alert type="info" :closable="false" style="margin-bottom:12px">列顺序：姓名 / 身份证号 / 手机 / 邮箱 / 供应商{{ isGroup ? ' / 组名' : '' }}</el-alert>
       <el-upload drag :auto-upload="false" :limit="1" accept=".xlsx,.xls" :on-change="f => importFile = f.raw">
         <el-icon style="font-size:40px;color:#c0c4cc"><UploadFilled /></el-icon>
         <div>拖拽或点击选择 Excel 文件</div>
@@ -194,13 +205,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getProject, publishProject, finishProject, listCandidates, addCandidate as apiAddCandidate,
-  deleteCandidate, hrSync, sendNotify, notifyLogs, getShortlistPlan, saveShortlistPlan,
-  shortlistPreview, shortlistConfirm, shortlistRevoke, pushHr, hrSyncLogs, download, upload
+  updateCandidate as apiUpdateCandidate, deleteCandidate, hrSync, sendNotify, notifyLogs,
+  getShortlistPlan, saveShortlistPlan, shortlistPreview, shortlistConfirm, shortlistRevoke,
+  pushHr, hrSyncLogs, download, upload
 } from '../../api'
 
 const route = useRoute()
@@ -218,6 +230,8 @@ async function loadProject() { project.value = await getProject(projectId) }
 const candidates = ref([])
 const syncing = ref(false)
 async function loadCandidates() { candidates.value = await listCandidates(projectId) }
+const isGroup = computed(() => project.value?.mode === 'GROUP')
+const groupOptions = computed(() => [...new Set(candidates.value.map(c => c.groupName).filter(Boolean))])
 
 async function doHrSync() {
   syncing.value = true
@@ -229,12 +243,25 @@ async function doHrSync() {
 }
 
 const candidateVisible = ref(false)
-const candForm = reactive({ name: '', idCard: '', phone: '', email: '', vendor: '' })
-async function addCandidate() {
-  await apiAddCandidate(projectId, candForm)
-  ElMessage.success('已添加')
+const candForm = reactive({ id: null, name: '', idCard: '', phone: '', email: '', vendor: '', groupName: '' })
+function openAdd() {
+  Object.assign(candForm, { id: null, name: '', idCard: '', phone: '', email: '', vendor: '', groupName: '' })
+  candidateVisible.value = true
+}
+function openEdit(row) {
+  Object.assign(candForm, { id: row.id, name: row.name, idCard: row.idCard, phone: row.phone || '',
+    email: row.email || '', vendor: row.vendor || '', groupName: row.groupName || '' })
+  candidateVisible.value = true
+}
+async function saveCandidate() {
+  if (candForm.id) {
+    await apiUpdateCandidate(projectId, candForm.id, candForm)
+    ElMessage.success('已保存')
+  } else {
+    await apiAddCandidate(projectId, candForm)
+    ElMessage.success('已添加')
+  }
   candidateVisible.value = false
-  Object.keys(candForm).forEach(k => candForm[k] = '')
   loadCandidates(); loadProject()
 }
 

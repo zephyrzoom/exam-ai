@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.exam.common.BusinessException;
+import com.exam.common.Consts;
 import com.exam.entity.ExamCandidate;
 import com.exam.entity.ExamProject;
 import com.exam.mapper.ExamCandidateMapper;
@@ -55,6 +56,7 @@ public class CandidateService {
         if (StrUtil.isBlank(c.getIdCard()) || c.getIdCard().trim().length() < 15)
             throw new BusinessException("身份证号不合法");
         c.setIdCard(c.getIdCard().trim().toUpperCase());
+        c.setGroupName(StrUtil.trimToNull(c.getGroupName()));
     }
 
     private void insertUnique(ExamCandidate c) {
@@ -89,7 +91,7 @@ public class CandidateService {
         return res;
     }
 
-    /** Excel 列: 姓名 身份证号 手机 邮箱 供应商 */
+    /** Excel 列: 姓名 身份证号 手机 邮箱 供应商 组名(编组模式) */
     public Map<String, Object> importExcel(Long projectId, MultipartFile file) throws IOException {
         projectService.checkWrite(projectService.get(projectId));
         List<Map<Integer, String>> rows = EasyExcel.read(file.getInputStream()).sheet().headRowNumber(1).doReadSync();
@@ -105,6 +107,7 @@ public class CandidateService {
                 c.setPhone(row.get(2));
                 c.setEmail(row.get(3));
                 c.setVendor(row.get(4));
+                c.setGroupName(row.get(5));
                 validate(c);
                 c.setProjectId(projectId);
                 c.setSource("EXCEL");
@@ -132,17 +135,40 @@ public class CandidateService {
         candidateMapper.deleteById(candidateId);
     }
 
+    /** 编辑考生资料与分组（身份证号作为身份标识不可改） */
+    public ExamCandidate update(Long projectId, Long candidateId, ExamCandidate data) {
+        projectService.checkWrite(projectService.get(projectId));
+        ExamCandidate c = candidateMapper.selectById(candidateId);
+        if (c == null || !Objects.equals(c.getProjectId(), projectId)) throw new BusinessException("考生不存在");
+        if (StrUtil.isBlank(data.getName())) throw new BusinessException("姓名不能为空");
+        c.setName(data.getName().trim());
+        c.setPhone(data.getPhone());
+        c.setEmail(data.getEmail());
+        c.setVendor(data.getVendor());
+        c.setGroupName(StrUtil.trimToNull(data.getGroupName()));
+        candidateMapper.updateById(c);
+        return c;
+    }
+
     public void export(Long projectId, HttpServletResponse response) throws IOException {
+        ExamProject project = projectService.get(projectId);
+        boolean groupMode = Consts.MODE_GROUP.equals(project.getMode());
         List<ExamCandidate> list = list(projectId);
-        List<List<String>> head = Arrays.asList(
+        List<List<String>> head = new ArrayList<>(Arrays.asList(
                 Collections.singletonList("姓名"), Collections.singletonList("身份证号"),
                 Collections.singletonList("手机"), Collections.singletonList("邮箱"),
-                Collections.singletonList("供应商"),
-                Collections.singletonList("来源"), Collections.singletonList("状态"));
+                Collections.singletonList("供应商")));
+        if (groupMode) head.add(Collections.singletonList("组名"));
+        head.add(Collections.singletonList("来源"));
+        head.add(Collections.singletonList("状态"));
         List<List<Object>> data = new ArrayList<>();
         for (ExamCandidate c : list) {
-            data.add(Arrays.asList(c.getName(), c.getIdCard(), c.getPhone(), c.getEmail(),
-                    c.getVendor(), sourceName(c.getSource()), statusName(c.getStatus())));
+            List<Object> row = new ArrayList<>(Arrays.asList(c.getName(), c.getIdCard(), c.getPhone(),
+                    c.getEmail(), c.getVendor()));
+            if (groupMode) row.add(StrUtil.nullToEmpty(c.getGroupName()));
+            row.add(sourceName(c.getSource()));
+            row.add(statusName(c.getStatus()));
+            data.add(row);
         }
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setCharacterEncoding("utf-8");
@@ -154,9 +180,9 @@ public class CandidateService {
         List<List<String>> head = Arrays.asList(
                 Collections.singletonList("姓名"), Collections.singletonList("身份证号"),
                 Collections.singletonList("手机"), Collections.singletonList("邮箱"),
-                Collections.singletonList("供应商"));
+                Collections.singletonList("供应商"), Collections.singletonList("组名"));
         List<List<Object>> demo = new ArrayList<>();
-        demo.add(Arrays.asList("示例考生", "110101199501011234", "13800000000", "demo@example.com", "示例供应商"));
+        demo.add(Arrays.asList("示例考生", "110101199501011234", "13800000000", "demo@example.com", "示例供应商", "A组"));
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setCharacterEncoding("utf-8");
         response.setHeader("Content-Disposition", "attachment;filename=candidate_template.xlsx");

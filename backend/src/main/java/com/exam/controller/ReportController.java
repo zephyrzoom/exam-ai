@@ -25,6 +25,11 @@ public class ReportController {
         return Result.ok(reportService.scores(id));
     }
 
+    @GetMapping("/projects/{id}/score-groups")
+    public Result<List<Map<String, Object>>> scoreGroups(@PathVariable Long id) {
+        return Result.ok(reportService.groupScores(id));
+    }
+
     @GetMapping("/projects/{id}/scores/export")
     public void exportScores(@PathVariable Long id, HttpServletResponse response) throws IOException {
         reportService.exportScores(id, response);

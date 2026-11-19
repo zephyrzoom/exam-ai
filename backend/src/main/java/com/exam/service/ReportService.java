@@ -2,6 +2,7 @@ package com.exam.service;
 
 import cn.hutool.core.util.StrUtil;
 import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.ExcelWriter;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.exam.common.BusinessException;
 import com.exam.common.Consts;
@@ -208,35 +209,121 @@ public class ReportService {
         return res;
     }
 
+    /** 编组模式：组平均成绩。平均分为组内已评分考生总分的平均值，缺考不计入；未分组考生归入「未分组」 */
+    public List<Map<String, Object>> groupScores(Long projectId) {
+        ExamProject project = projectService.get(projectId);
+        if (!Consts.MODE_GROUP.equals(project.getMode())) return Collections.emptyList();
+        List<ExamCandidate> candidates = candidateMapper.selectList(new LambdaQueryWrapper<ExamCandidate>()
+                .eq(ExamCandidate::getProjectId, projectId));
+        List<ExamRecord> records = recordMapper.selectList(new LambdaQueryWrapper<ExamRecord>()
+                .eq(ExamRecord::getProjectId, projectId));
+        Map<Long, ExamRecord> byCandidate = records.stream()
+                .collect(Collectors.toMap(ExamRecord::getCandidateId, r -> r, (a, b) -> a));
+        Map<String, List<ExamCandidate>> groups = new LinkedHashMap<>();
+        for (ExamCandidate c : candidates) {
+            String g = StrUtil.isBlank(c.getGroupName()) ? "未分组" : c.getGroupName();
+            groups.computeIfAbsent(g, k -> new ArrayList<>()).add(c);
+        }
+        List<Map<String, Object>> res = new ArrayList<>();
+        for (Map.Entry<String, List<ExamCandidate>> e : groups.entrySet()) {
+            List<BigDecimal> totals = new ArrayList<>();
+            int absent = 0;
+            for (ExamCandidate c : e.getValue()) {
+                ExamRecord r = byCandidate.get(c.getId());
+                if (r == null) continue;
+                if (r.getAbsent() != null && r.getAbsent() == 1) { absent++; continue; }
+                if (Consts.REC_GRADED.equals(r.getStatus())) totals.add(r.getTotalScore());
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("groupName", e.getKey());
+            row.put("memberCount", e.getValue().size());
+            row.put("gradedCount", totals.size());
+            row.put("absentCount", absent);
+            if (totals.isEmpty()) {
+                row.put("avgScore", null);
+                row.put("maxScore", null);
+                row.put("minScore", null);
+            } else {
+                BigDecimal sum = totals.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+                row.put("avgScore", sum.divide(new BigDecimal(totals.size()), 2, RoundingMode.HALF_UP));
+                row.put("maxScore", totals.stream().max(BigDecimal::compareTo).get());
+                row.put("minScore", totals.stream().min(BigDecimal::compareTo).get());
+            }
+            res.add(row);
+        }
+        res.sort((a, b) -> {
+            BigDecimal av = (BigDecimal) a.get("avgScore"), bv = (BigDecimal) b.get("avgScore");
+            if (av == null) return bv == null ? 0 : 1;
+            if (bv == null) return -1;
+            return bv.compareTo(av);
+        });
+        return res;
+    }
+
     public void exportScores(Long projectId, HttpServletResponse response) throws IOException {
         ExamProject project = projectService.get(projectId);
+        boolean groupMode = Consts.MODE_GROUP.equals(project.getMode());
         List<ExamRecord> records = scores(projectId);
-        List<List<String>> head = Arrays.asList(
-                Collections.singletonList("排名"), Collections.singletonList("姓名"),
-                Collections.singletonList("身份证号"), Collections.singletonList("供应商"),
-                Collections.singletonList("客观题得分"), Collections.singletonList("主观题得分"),
-                Collections.singletonList("总分"), Collections.singletonList("及格线"),
-                Collections.singletonList("是否及格"), Collections.singletonList("是否入围"),
-                Collections.singletonList("缺考"), Collections.singletonList("交卷方式"),
-                Collections.singletonList("切屏次数"), Collections.singletonList("状态"));
+        List<List<String>> head = new ArrayList<>();
+        head.add(Collections.singletonList("排名"));
+        head.add(Collections.singletonList("姓名"));
+        if (groupMode) head.add(Collections.singletonList("组名"));
+        head.add(Collections.singletonList("身份证号"));
+        head.add(Collections.singletonList("供应商"));
+        head.add(Collections.singletonList("客观题得分"));
+        head.add(Collections.singletonList("主观题得分"));
+        head.add(Collections.singletonList("总分"));
+        head.add(Collections.singletonList("及格线"));
+        head.add(Collections.singletonList("是否及格"));
+        head.add(Collections.singletonList("是否入围"));
+        head.add(Collections.singletonList("缺考"));
+        head.add(Collections.singletonList("交卷方式"));
+        head.add(Collections.singletonList("切屏次数"));
+        head.add(Collections.singletonList("状态"));
         List<List<Object>> data = new ArrayList<>();
         for (ExamRecord r : records) {
-            data.add(Arrays.asList(
-                    r.getRankNo() == null ? "-" : r.getRankNo(),
-                    r.getCandidateName(), r.getIdCard(), r.getVendor(),
-                    r.getObjectiveScore(), r.getSubjectiveScore(), r.getTotalScore(),
-                    project.getPassScore(),
-                    r.getPassed() == null ? "-" : (r.getPassed() == 1 ? "是" : "否"),
-                    r.getShortlisted() != null && r.getShortlisted() == 1 ? "是" : "否",
-                    r.getAbsent() != null && r.getAbsent() == 1 ? "是" : "否",
-                    "AUTO".equals(r.getSubmitType()) ? "自动交卷" : "主动交卷",
-                    r.getSwitchCount(),
-                    Consts.REC_GRADED.equals(r.getStatus()) ? "已评分" : "待复核"));
+            List<Object> row = new ArrayList<>();
+            row.add(r.getRankNo() == null ? "-" : r.getRankNo());
+            row.add(r.getCandidateName());
+            if (groupMode) row.add(StrUtil.nullToEmpty(r.getGroupName()));
+            row.add(r.getIdCard());
+            row.add(r.getVendor());
+            row.add(r.getObjectiveScore());
+            row.add(r.getSubjectiveScore());
+            row.add(r.getTotalScore());
+            row.add(project.getPassScore());
+            row.add(r.getPassed() == null ? "-" : (r.getPassed() == 1 ? "是" : "否"));
+            row.add(r.getShortlisted() != null && r.getShortlisted() == 1 ? "是" : "否");
+            row.add(r.getAbsent() != null && r.getAbsent() == 1 ? "是" : "否");
+            row.add("AUTO".equals(r.getSubmitType()) ? "自动交卷" : "主动交卷");
+            row.add(r.getSwitchCount());
+            row.add(Consts.REC_GRADED.equals(r.getStatus()) ? "已评分" : "待复核");
+            data.add(row);
         }
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setCharacterEncoding("utf-8");
         response.setHeader("Content-Disposition", "attachment;filename="
                 + URLEncoder.encode(project.getName() + "-成绩表", "UTF-8") + ".xlsx");
-        EasyExcel.write(response.getOutputStream()).head(head).sheet("成绩").doWrite(data);
+        if (!groupMode) {
+            EasyExcel.write(response.getOutputStream()).head(head).sheet("成绩").doWrite(data);
+            return;
+        }
+        List<List<String>> groupHead = Arrays.asList(
+                Collections.singletonList("组名"), Collections.singletonList("考生数"),
+                Collections.singletonList("已评分人数"), Collections.singletonList("缺考人数"),
+                Collections.singletonList("平均分"), Collections.singletonList("最高分"),
+                Collections.singletonList("最低分"));
+        List<List<Object>> groupData = new ArrayList<>();
+        for (Map<String, Object> g : groupScores(projectId)) {
+            groupData.add(Arrays.asList(g.get("groupName"), g.get("memberCount"), g.get("gradedCount"),
+                    g.get("absentCount"),
+                    g.get("avgScore") == null ? "-" : g.get("avgScore"),
+                    g.get("maxScore") == null ? "-" : g.get("maxScore"),
+                    g.get("minScore") == null ? "-" : g.get("minScore")));
+        }
+        ExcelWriter writer = EasyExcel.write(response.getOutputStream()).build();
+        writer.write(data, EasyExcel.writerSheet(0, "成绩").head(head).build());
+        writer.write(groupData, EasyExcel.writerSheet(1, "组平均成绩").head(groupHead).build());
+        writer.finish();
     }
 }

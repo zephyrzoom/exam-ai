@@ -16,6 +16,8 @@ public class ExamCandidate {
     private String phone;
     private String email;
     private String vendor;
+    /** 编组模式下的组名，空为未分组 */
+    private String groupName;
     /** HR / EXCEL / MANUAL */
     private String source;
     private String hrId;

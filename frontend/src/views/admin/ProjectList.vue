@@ -20,6 +20,13 @@
       <el-table-column v-if="isPm" prop="deptName" label="部门" width="120" show-overflow-tooltip />
       <el-table-column prop="paperName" label="试卷" min-width="150" show-overflow-tooltip />
       <el-table-column prop="batch" label="批次" width="90" />
+      <el-table-column label="模式" width="80">
+        <template #default="{ row }">
+          <el-tag size="small" :type="row.mode === 'GROUP' ? 'warning' : 'info'">
+            {{ row.mode === 'GROUP' ? '编组' : '个人' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="location" label="地点" width="100" show-overflow-tooltip />
       <el-table-column label="考试时间" width="300">
         <template #default="{ row }">{{ row.startTime }} ~ {{ row.endTime }}</template>
@@ -53,6 +60,13 @@
             <el-option v-for="p in papers" :key="p.id"
                        :label="`${p.name}（${p.questionCount}题 / ${p.totalScore}分）`" :value="p.id" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="考试模式">
+          <el-radio-group v-model="form.mode">
+            <el-radio value="INDIVIDUAL">个人模式</el-radio>
+            <el-radio value="GROUP">编组模式</el-radio>
+          </el-radio-group>
+          <div v-if="form.mode === 'GROUP'" class="muted" style="line-height:1.4">考生可编入小组，成绩列表与导出含组平均成绩</div>
         </el-form-item>
         <el-form-item label="考试时长" required>
           <el-input-number v-model="form.durationMin" :min="5" :max="480" /> 分钟
@@ -101,14 +115,14 @@ async function load() {
 
 const editVisible = ref(false)
 const saving = ref(false)
-const form = reactive({ id: null, name: '', paperId: null, durationMin: 60, location: '线上',
+const form = reactive({ id: null, name: '', paperId: null, mode: 'INDIVIDUAL', durationMin: 60, location: '线上',
   batch: '', startTime: '', endTime: '', passScore: 60 })
 
 async function openEdit(row) {
   const data = await pagePapers({ pageNum: 1, pageSize: 100, status: 'PUBLISHED' })
   papers.value = data.records
   if (row) Object.assign(form, row)
-  else Object.assign(form, { id: null, name: '', paperId: null, durationMin: 60, location: '线上',
+  else Object.assign(form, { id: null, name: '', paperId: null, mode: 'INDIVIDUAL', durationMin: 60, location: '线上',
     batch: '', startTime: '', endTime: '', passScore: 60 })
   editVisible.value = true
 }

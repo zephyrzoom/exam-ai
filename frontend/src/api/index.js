@@ -90,6 +90,7 @@ export const publishProject = id => http.post(`/projects/${id}/publish`)
 export const finishProject = id => http.post(`/projects/${id}/finish`)
 export const listCandidates = id => http.get(`/projects/${id}/candidates`)
 export const addCandidate = (id, d) => http.post(`/projects/${id}/candidates`, d)
+export const updateCandidate = (id, cid, d) => http.put(`/projects/${id}/candidates/${cid}`, d)
 export const deleteCandidate = (id, cid) => http.delete(`/projects/${id}/candidates/${cid}`)
 export const hrSync = id => http.post(`/projects/${id}/candidates/hr-sync`)
 export const sendNotify = id => http.post(`/projects/${id}/notify`)
@@ -110,6 +111,7 @@ export const finalizeRecord = id => http.post(`/grading/records/${id}/finalize`)
 
 // ---------- 成绩 ----------
 export const projectScores = id => http.get(`/projects/${id}/scores`)
+export const projectScoreGroups = id => http.get(`/projects/${id}/score-groups`)
 export const projectAnalysis = id => http.get(`/projects/${id}/analysis`)
 export const personalReport = id => http.get(`/records/${id}/report`)
 

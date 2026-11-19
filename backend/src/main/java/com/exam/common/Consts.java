@@ -24,6 +24,9 @@ public interface Consts {
     String PROJECT_PUBLISHED = "PUBLISHED";
     String PROJECT_FINISHED = "FINISHED";
 
+    String MODE_INDIVIDUAL = "INDIVIDUAL";
+    String MODE_GROUP = "GROUP";
+
     String REC_IN_PROGRESS = "IN_PROGRESS";
     String REC_SUBMITTED = "SUBMITTED";
     String REC_GRADED = "GRADED";

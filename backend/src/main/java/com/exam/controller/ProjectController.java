@@ -90,6 +90,12 @@ public class ProjectController {
         return Result.ok(candidateService.addManual(id, candidate));
     }
 
+    @PutMapping("/{id}/candidates/{candidateId}")
+    public Result<ExamCandidate> updateCandidate(@PathVariable Long id, @PathVariable Long candidateId,
+                                                 @RequestBody ExamCandidate candidate) {
+        return Result.ok(candidateService.update(id, candidateId, candidate));
+    }
+
     @DeleteMapping("/{id}/candidates/{candidateId}")
     public Result<?> deleteCandidate(@PathVariable Long id, @PathVariable Long candidateId) {
         candidateService.delete(id, candidateId);

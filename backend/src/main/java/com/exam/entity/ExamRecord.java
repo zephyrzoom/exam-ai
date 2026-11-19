@@ -43,5 +43,7 @@ public class ExamRecord {
     @TableField(exist = false)
     private String vendor;
     @TableField(exist = false)
+    private String groupName;
+    @TableField(exist = false)
     private String projectName;
 }

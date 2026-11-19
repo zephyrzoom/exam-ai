@@ -191,7 +191,7 @@
         <div>拖拽或点击选择 Excel 文件</div>
       </el-upload>
       <template #footer>
-        <el-button @click="download('/projects/candidates/template', '考生导入模板.xlsx')">下载模板</el-button>
+        <el-button @click="download(`/projects/${projectId}/candidates/template`, '考生导入模板.xlsx')">下载模板</el-button>
         <el-button @click="importVisible = false">取消</el-button>
         <el-button type="primary" :loading="importing" @click="doImport">导入</el-button>
       </template>

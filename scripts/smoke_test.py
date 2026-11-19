@@ -300,6 +300,14 @@ check("导入考生组名解析", call("GET", f"/projects/{ipid}/candidates", dt
 cexp = openpyxl.load_workbook(io.BytesIO(call("GET", f"/projects/{ipid}/candidates/export", dt, raw=True)))
 chead = [c.value for c in cexp["考生名单"][1]]
 results.append(("名单导出含组名列", "组名" in chead)); print(("PASS " if "组名" in chead else "FAIL ") + f"名单导出含组名列 {chead}")
+# 导入模板按模式区分：个人无组名列、编组含组名列
+itpl = openpyxl.load_workbook(io.BytesIO(call("GET", f"/projects/{projid}/candidates/template", dt, raw=True)))
+itpl_head = [c.value for c in itpl["模板"][1]]
+gtpl = openpyxl.load_workbook(io.BytesIO(call("GET", f"/projects/{gpid}/candidates/template", dt, raw=True)))
+gtpl_head = [c.value for c in gtpl["模板"][1]]
+ok_tpl = (itpl_head == ["姓名", "身份证号", "手机", "邮箱", "供应商"]
+          and gtpl_head == ["姓名", "身份证号", "手机", "邮箱", "供应商", "组名"])
+results.append(("导入模板按模式区分", ok_tpl)); print(("PASS " if ok_tpl else "FAIL ") + f"导入模板按模式区分 个人={itpl_head} 编组={gtpl_head}")
 
 # 9. 权限隔离
 r = call("GET", "/papers", call("POST", "/auth/login", body={"username": "lisi", "password": "123456"})["data"]["token"])

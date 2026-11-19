@@ -176,17 +176,24 @@ public class CandidateService {
         EasyExcel.write(response.getOutputStream()).head(head).sheet("考生名单").doWrite(data);
     }
 
-    public void downloadTemplate(HttpServletResponse response) throws IOException {
-        List<List<String>> head = Arrays.asList(
+    /** 导入模板按项目模式区分：个人模式无组名列，编组模式含组名列 */
+    public void downloadTemplate(Long projectId, HttpServletResponse response) throws IOException {
+        ExamProject project = projectService.get(projectId);
+        boolean groupMode = Consts.MODE_GROUP.equals(project.getMode());
+        List<List<String>> head = new ArrayList<>(Arrays.asList(
                 Collections.singletonList("姓名"), Collections.singletonList("身份证号"),
                 Collections.singletonList("手机"), Collections.singletonList("邮箱"),
-                Collections.singletonList("供应商"), Collections.singletonList("组名"));
-        List<List<Object>> demo = new ArrayList<>();
-        demo.add(Arrays.asList("示例考生", "110101199501011234", "13800000000", "demo@example.com", "示例供应商", "A组"));
+                Collections.singletonList("供应商")));
+        List<Object> demo = new ArrayList<>(Arrays.asList(
+                "示例考生", "110101199501011234", "13800000000", "demo@example.com", "示例供应商"));
+        if (groupMode) {
+            head.add(Collections.singletonList("组名"));
+            demo.add("A组");
+        }
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setCharacterEncoding("utf-8");
         response.setHeader("Content-Disposition", "attachment;filename=candidate_template.xlsx");
-        EasyExcel.write(response.getOutputStream()).head(head).sheet("模板").doWrite(demo);
+        EasyExcel.write(response.getOutputStream()).head(head).sheet("模板").doWrite(Collections.singletonList(demo));
     }
 
     public static String sourceName(String s) {

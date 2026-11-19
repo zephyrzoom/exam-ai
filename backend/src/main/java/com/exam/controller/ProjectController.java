@@ -118,9 +118,9 @@ public class ProjectController {
         candidateService.export(id, response);
     }
 
-    @GetMapping("/candidates/template")
-    public void candidateTemplate(HttpServletResponse response) throws IOException {
-        candidateService.downloadTemplate(response);
+    @GetMapping("/{id}/candidates/template")
+    public void candidateTemplate(@PathVariable Long id, HttpServletResponse response) throws IOException {
+        candidateService.downloadTemplate(id, response);
     }
 
     // ---------------- 考试通知 ----------------
